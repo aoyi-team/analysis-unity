@@ -1,0 +1,76 @@
+# Unity generated folders
+/Library/
+/Temp/
+/Obj/
+/obj/
+/Build/
+/Builds/
+/Logs/
+/UserSettings/
+/MemoryCaptures/
+
+# Plastic SCM metadata
+/.plastic/
+
+# Visual Studio / Rider / IDE generated files
+.trae/
+.vs/
+**/.vs/
+/.idea/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Keep the companion TCP server project files
+!/Aoyi_TCPServer/Aoyi_TCPServer.csproj
+!/Aoyi_TCPServer/Aoyi_TCPServer.sln
+
+# OS files
+.DS_Store
+.DS_Store?
+Thumbs.db
+Desktop.ini
+
+# Unity local/export artifacts
+ExportedObj/
+*.apk
+*.aab
+*.unitypackage
+sysinfo.txt
+~UnityDirMonSyncFile~*
+
+# Gradle / Android
+.gradle/
+
+# .NET build/restore output for the companion server
+**/bin/
+**/obj/
+/Aoyi_TCPServer/packages/
+
+# Unity Addressables generated build cache
+/Assets/AddressableAssetsData/*/*.bin*
+/Assets/StreamingAssets/aa.meta
+/Assets/StreamingAssets/aa/
+
+# Local/private files
+*.private
+*.private.meta
+*.private.*
+*.private.*.meta
+
+# Crashlytics
+crashlytics-build.properties

@@ -1,0 +1,71 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10f035e7f80292a41b3b4069aaf9426a, type: 3}
+  m_Name: dantiao_ModeConfig
+  m_EditorClassIdentifier: 
+  gameMode: 2
+  totalPlayerCount: 2
+  teamCount: 2
+  GameTimeSeconds: 5
+  spawnPoints:
+  - points:
+    - {x: -5, y: 0}
+  - points:
+    - {x: 5, y: 0}
+  _colliderDatas:
+  - colliderType: 5
+    center:
+      x:
+        m_Bits: 0
+      y:
+        m_Bits: 0
+    size:
+      x:
+        m_Bits: 0
+      y:
+        m_Bits: 0
+    points:
+    - x:
+        m_Bits: 484970
+      y:
+        m_Bits: 16391
+    - x:
+        m_Bits: 352872
+      y:
+        m_Bits: 361820
+    - x:
+        m_Bits: -1863
+      y:
+        m_Bits: 508973
+    - x:
+        m_Bits: -340333
+      y:
+        m_Bits: 365654
+    - x:
+        m_Bits: -487134
+      y:
+        m_Bits: 18389
+    - x:
+        m_Bits: -344083
+      y:
+        m_Bits: -319455
+    - x:
+        m_Bits: 1257
+      y:
+        m_Bits: -475962
+    - x:
+        m_Bits: 347395
+      y:
+        m_Bits: -326300
+    isTrigger: 0
+  cachedSpawnPoints: []
+  winScore: 3

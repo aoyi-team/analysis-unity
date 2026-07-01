@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: 9d95bcd4a445c314f962f14bf8906aec
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - ThisPlayerRunAnimator: {instanceID: 0}
+  - LongYanYinji: {fileID: 7034795373738646284, guid: 0a14afecb6e56864380eb56853c7c50a, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
