@@ -60,6 +60,17 @@ public static class EmbeddedMsgHandler
         EmbeddedTcpServer.Current?.Close(c);
     }
 
+    // 处理匹配请求（记录玩家英雄选择）
+    public static void MsgMatchRequest(EmbeddedClientState c, MsgBase msgBase)
+    {
+        MsgMatchRequest req = (MsgMatchRequest)msgBase;
+        if (req.playerPack != null && req.playerPack.Count > 0)
+        {
+            c.heroId = req.playerPack[0].selectedHeroId;
+        }
+        LanHostManager.Log($"[EmbeddedMsgHandler] 玩家 {c.tempUserId} 选择英雄 {c.heroId}");
+    }
+
     // 未处理协议记录日志
     public static void OnUnhandledMsg(string protoName)
     {

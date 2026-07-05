@@ -11,6 +11,8 @@ public class EmbeddedClientState
     public string userName;
     public bool isReady;
     public long lastPingTime;
+    public int heroId;
+    public int skinId;
 
     public void UpdateUserInfo(string userId, string userName)
     {

@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
-using static Cinemachine.CinemachineTriggerAction.ActionSettings;
+using Mirror;
+using Aoyi.Mirror;
 /// <summary>
-/// ��һ�����Ϣ������
-/// ȫ�ִ洢��ҵ�ID����ɫ��
-/// ��ѡ��ɫID(�Ͼ��°���Ϸ��Ĭ�Ͻ�ɫ���ǻ��õ���)
+/// 玩家基础信息管理器
+/// 全局存储我的ID、角色等
+/// (选角色ID(就进入游戏后默认角色就是获得的那个)
 /// </summary>
 
 public class PlayerBasicInfoMgr : MonoBehaviour
@@ -12,7 +14,7 @@ public class PlayerBasicInfoMgr : MonoBehaviour
     private static PlayerBasicInfoMgr instance;
     public  static PlayerBasicInfoMgr Instance
     {
-        get { 
+        get {
             if(instance == null)
             {
                 GameObject InfoMgr = new GameObject("PlayerBasicInfoMgr");
@@ -22,16 +24,25 @@ public class PlayerBasicInfoMgr : MonoBehaviour
             return instance;
         }
     }
-    private GameModes gameMode;// ��ǰѡ�����Ϸģʽ
-    private string ID;//���ID,����ʱת����int
-    private string Name;//�������
-    private int Level;//��ǰ�˺ŵȼ�
-    private string roomID;//��ǰ���ڷ���ID
-    private int teamId;//��ǰ���ڶ���ID
+    private GameModes gameMode;
+    private string ID;
+    private string battleId;
+    private bool _battleIdFallbackLogged; // 避免降级日志刷屏
+    private string Name;
+    private int Level;
+    private string roomID;
+    private int teamId;
     public GameModes GameMode { get { return gameMode; }}
     public string RoomId { get { return roomID; } }
     public int TeamId { get { return teamId; } }
     public HeroSelectCache HeroCache;
+
+    /// <summary>
+    /// 战斗场景中所有玩家数据（由 AoyiNetworkRoomManager 在场景切换后设置）
+    /// </summary>
+    private List<PlayerData> _battleAllPlayers;
+    /// <summary>本地玩家在战斗中的 index（游戏内 ID）</summary>
+    private int _localPlayerIndex = -1;
 
     #region 网络会话状态（Phase 1 新增）
     /// <summary>当前网络运行模式</summary>
@@ -80,25 +91,94 @@ public class PlayerBasicInfoMgr : MonoBehaviour
     {
         Level = level;
     }
-    public void UpdatePlayerId(string id)//�ⲿ���ø���ID
+    public void UpdatePlayerId(string id)
     {
         ID = id;
     }
-    public void UpdatePlayerName(string name)//��������
+    public void UpdatePlayerName(string name)
     {
         Name = name;
     }
     public int GetIntId()
     {
-        return int.Parse(ID);
+        int id;
+        int.TryParse(ID, out id);
+        return id;
     }
-    public string GetID()//��ȡ��ǰString����ID
+    public string GetID()
     {
         return ID;
     }
-    public string GetName()//��ȡ��ǰ��ɫ��
+    public string GetName()
     {
         return Name;
+    }
+    public void SetBattleId(string id)
+    {
+        battleId = id;
+        Debug.Log($"[PlayerBasicInfoMgr] SetBattleId='{id}' (账号ID='{ID}')");
+    }
+    public void ClearBattleId()
+    {
+        Debug.Log($"[PlayerBasicInfoMgr] ClearBattleId (旧值='{battleId}')");
+        battleId = null;
+        _localPlayerIndex = -1;
+    }
+    public string GetBattleId()
+    {
+        // 局域网模式：优先用 RoomPlayer 的 index 作为游戏内 ID
+        if (MirrorNetBridge.IsMirrorActive && AoyiNetworkRoomManager.singleton != null)
+        {
+            int idx = AoyiNetworkRoomManager.singleton.GetLocalPlayerIndex();
+            if (idx >= 0)
+            {
+                _localPlayerIndex = idx;
+                string battleIdFromIndex = idx.ToString();
+                if (battleId != battleIdFromIndex)
+                {
+                    battleId = battleIdFromIndex;
+                    Debug.Log($"[PlayerBasicInfoMgr] GetBattleId 从 RoomPlayer.index 获取：'{battleId}'");
+                }
+                return battleId;
+            }
+        }
+
+        if (battleId != null)
+            return battleId;
+
+        // 降级日志只打一次
+        if (!_battleIdFallbackLogged)
+        {
+            Debug.Log($"[PlayerBasicInfoMgr] GetBattleId 降级中：battleId 为空, ID={ID}, IsMirrorActive={MirrorNetBridge.IsMirrorActive}");
+            _battleIdFallbackLogged = true;
+        }
+
+        return ID;
+    }
+
+    /// <summary>
+    /// 设置战斗场景中所有玩家数据（由 AoyiNetworkRoomManager 调用）
+    /// </summary>
+    public void SetBattleAllPlayers(List<PlayerData> players)
+    {
+        _battleAllPlayers = players;
+        Debug.Log($"[PlayerBasicInfoMgr] SetBattleAllPlayers: 玩家数={players?.Count ?? 0}, 本地index={_localPlayerIndex}");
+    }
+
+    /// <summary>
+    /// 获取战斗场景中所有玩家数据
+    /// </summary>
+    public List<PlayerData> GetBattleAllPlayers()
+    {
+        return _battleAllPlayers;
+    }
+
+    /// <summary>
+    /// 获取本地玩家在战斗中的 index
+    /// </summary>
+    public int GetLocalPlayerIndex()
+    {
+        return _localPlayerIndex;
     }
     /// <summary>
     /// ����Ӣ��ѡ�񻺴棨ѡ��Ӣ��/�л�ģʽʱ���ã�

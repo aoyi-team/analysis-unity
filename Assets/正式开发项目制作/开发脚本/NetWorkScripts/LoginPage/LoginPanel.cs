@@ -1,29 +1,40 @@
 using BaseClasses;
 using MsgFramework;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using System.Collections;
 
 namespace Panels
 {
-
-    public class LoginPanel : BasePanel//Panel×é¼ş¾ÍÊÇ¹ÒÔØÔÚPanelListÏÂÃæµÄĞòÁĞ¿ÕÎïÌå£¬ĞòÁĞ¿ÕÎïÌåÏÂÃæ¹ÒÔØÃæ°åÔ¤ÖÆÌå
+    public class LoginPanel : BasePanel
     {
-        private Button DuoduoLoginBtn;//¶à¶àºÅµÇÂ¼ÇĞ»»°´Å¥
-        private Button NameLoginBtn;//½ÇÉ«ÃûµÇÂ¼ÇĞ»»°´Å¥
-        private GameObject IdorNameCross;//¼ì²âID»òÕßÃû×ÖÊÇ·ñÎª¿Õ
-        private GameObject pwCross;//¼ì²âÃÜÂëÊäÈëÎª¿Õ
+        private Button DuoduoLoginBtn;
+        private Button NameLoginBtn;
+        private GameObject IdorNameCross;
+        private GameObject pwCross;
         private Button LoginBtn;
         private Button RegisterBtn;
         private InputField idText;
         private InputField nameText;
         private InputField pwText;
-        private int LoginWay = 0;//0-IDµÇÂ¼ 1-½ÇÉ«ÃûµÇÂ¼
-        private bool pwCheck = false;//ÃÜÂë¼ì²âÎª¿ÕÊÇ·ñ
+        private int LoginWay = 0; // 0-è´¦å·ç™»å½•ï¼Œ1-ç”¨æˆ·åç™»å½•
+        private Toggle rememberPwToggle;
 
-        #region//¼ÓÔØ³¡¾°°ó¶¨
+        // ç½‘ç»œæ¨¡å¼é€‰æ‹©
+        private Dropdown modeDropdown;
+        private NetworkMode selectedMode = NetworkMode.SupabaseOnline;
+
+        // ä¸åŒæ¨¡å¼ä¸‹çš„å¯é€‰è¾“å…¥æ¡†ï¼ˆå¦‚é¢„åˆ¶ä½“ä¸­æœªæä¾›åˆ™å¤ç”¨å·²æœ‰è¾“å…¥æ¡†ï¼‰
+        private InputField ipText;     // æœ¬åœ°æœåŠ¡å™¨ IP
+        private InputField emailText;  // Supabase é‚®ç®±
+        private InputField nickText;   // å±€åŸŸç½‘æ˜µç§°
+
+        #region //åŠ è½½åœºæ™¯
         private int SceneNumber;
         private GameObject LoadScene;
         private Image LoadBar;
@@ -31,6 +42,7 @@ namespace Panels
         private float LoadAnimaFactor;
         private bool FirstTrigger = true;
         #endregion
+
         public override void Init(params object[] args)
         {
             PanelName = "LoginPanel";
@@ -38,6 +50,7 @@ namespace Panels
             PanelObj = Instantiate(o);
             PanelObj.name = "LoginPanel";
             PanelObj.transform.SetParent(gameObject.transform);
+
             IdorNameCross = transform.Find("LoginPanel/LoginPageBG/LoginPage/CrossOrTickImg/pwCross").gameObject;
             pwCross = transform.Find("LoginPanel/LoginPageBG/LoginPage/CrossOrTickImg/pwReCross").gameObject;
             NameLoginBtn = transform.Find("LoginPanel/LoginPageBG/TwoBtns/NameLoginButton").gameObject.GetComponent<Button>();
@@ -48,18 +61,50 @@ namespace Panels
             idText = transform.Find("LoginPanel/LoginPageBG/LoginPage/IdInputFieldBG/DuodInputfield").GetComponent<InputField>();
             nameText = transform.Find("LoginPanel/LoginPageBG/LoginPage/NameInputfield/InputField").GetComponent<InputField>();
             pwText = transform.Find("LoginPanel/LoginPageBG/LoginPage/pwInputfieldBG/InputField").GetComponent<InputField>();
+
+            // æ¨¡å¼é€‰æ‹©ä¸‹æ‹‰æ¡†ï¼ˆå¦‚é¢„åˆ¶ä½“ä¸­å­˜åœ¨åˆ™ä½¿ç”¨ï¼Œå¦åˆ™ä¸æ˜¾ç¤ºï¼‰
+            Transform dropdownTrans = transform.Find("LoginPanel/LoginPageBG/NetworkModeDropdown");
+            if (dropdownTrans != null)
+            {
+                modeDropdown = dropdownTrans.GetComponent<Dropdown>();
+                if (modeDropdown != null)
+                {
+                    modeDropdown.ClearOptions();
+                    modeDropdown.AddOptions(new List<string> { "Supabase åœ¨çº¿" });
+                    modeDropdown.value = 0;
+                    modeDropdown.interactable = false;
+                    modeDropdown.onValueChanged.AddListener(OnModeChanged);
+                }
+            }
+
+            // å¯é€‰è¾“å…¥æ¡†
+            ipText = GetOptionalInputField("LoginPanel/LoginPageBG/IpInputFieldBG/IpInputfield");
+            emailText = GetOptionalInputField("LoginPanel/LoginPageBG/EmailInputFieldBG/EmailInputfield");
+            nickText = GetOptionalInputField("LoginPanel/LoginPageBG/NickInputFieldBG/NickInputfield");
+
             gameObject.name = "LoginPage";
+            selectedMode = NetworkMode.SupabaseOnline;
+            PlayerBasicInfoMgr.Instance.CurrentNetworkMode = selectedMode;
+            BackendProviderFactory.Create(selectedMode);
+
             LoginBtn.onClick.AddListener(OnLoginBtnClick);
             RegisterBtn.onClick.AddListener(OnRegisterBtnClick);
             DuoduoLoginBtn.onClick.AddListener(() => OnClickChangeLoginWay(0));
             NameLoginBtn.onClick.AddListener(() => OnClickChangeLoginWay(1));
+            DuoduoLoginBtn.gameObject.SetActive(true);
+            NameLoginBtn.gameObject.SetActive(true);
             idText.onEndEdit.AddListener((text) => OnEndEditInfo());
             nameText.onEndEdit.AddListener((text) => OnEndEditInfo());
             pwText.onEndEdit.AddListener((text) => OnEndEditInfo());
-            InitMsgListeners();
+
+            rememberPwToggle = transform.Find("LoginPanel/Img_01/Toggle")?.GetComponent<Toggle>();
+
+            LoadSavedCredentials();
+            RefreshInputVisibility();
         }
-        #region//³¡¾°¼ÓÔØÄ£¿é
-        private void LoadSceneInit()//³õÊ¼»¯´ı°ó¶¨µÄ¼ÓÔØ³¡¾°
+
+        #region //åŠ è½½åœºæ™¯
+        private void LoadSceneInit()
         {
             SceneNumber = 2;
             LoadAnimaFactor = 1.8f;
@@ -69,7 +114,8 @@ namespace Panels
             LoadBar = SecRoot.Find("Panel/LoadBarBG/LoadBar").gameObject.GetComponent<Image>();
             LoadPercentage = SecRoot.Find("Panel/PercentageNum").gameObject.GetComponent<Text>();
         }
-        public IEnumerator LoadSceneAync()//Òì²½¼ÓÔØ³¡¾°£¬ÒªÏò·şÎñÆ÷·¢ËÍ»ñÈ¡ºÃÓÑĞÅÏ¢µÄĞ­Òé£¬³õÊ¼»¯¸öÈËĞÅÏ¢(»ñÈ¡¸öÈË¸öÈË½ÇÉ«Ãû£¬¸öÈËÍ·Ïñ¼°Í·Ïñ¿òIDµÈÊı¾İ)
+
+        public IEnumerator LoadSceneAync()
         {
             LoadScene.SetActive(true);
             AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(SceneNumber);
@@ -90,103 +136,201 @@ namespace Panels
             yield return null;
         }
         #endregion
-        private void OnClickChangeLoginWay(int i)//ÇĞ»»µÇÂ¼·½Ê½
+
+        private void OnClickChangeLoginWay(int loginWay)
         {
-            LoginWay = i;
+            LoginWay = loginWay;
+            RefreshInputVisibility();
         }
-        public override void InitMsgListeners()//×¢²áĞ­Òé¼àÌı
+
+        private void OnModeChanged(int value)
         {
-            NetWorkMgr.AddMsgListener("MsgLoginProf", OnMsgLoginProf);
+            selectedMode = NetworkMode.SupabaseOnline;
+            PlayerBasicInfoMgr.Instance.CurrentNetworkMode = selectedMode;
+            RefreshInputVisibility();
         }
-        /*public override void Open(params object[] args)
+
+        private InputField GetOptionalInputField(string path)
         {
-            PanelName = "LoginPanel";
-            GameObject o = ResMgr.LoadPanelPrefabs(PanelName);
-            PanelObj = Instantiate(o);
-            PanelObj.name = "LoginPanel";
-            PanelObj.transform.SetParent(gameObject.transform);
-        }*/
-        public void OnLoginBtnClick()//µÇÂ¼°´Å¥
+            Transform t = transform.Find(path);
+            if (t == null) return null;
+            return t.GetComponent<InputField>();
+        }
+
+        private void RefreshInputVisibility()
         {
-            if (string.IsNullOrEmpty(pwText.text))
+            bool local = selectedMode == NetworkMode.LocalServer;
+            bool lan = selectedMode == NetworkMode.LanClient || selectedMode == NetworkMode.LanHost;
+            bool supa = selectedMode == NetworkMode.SupabaseOnline;
+
+            SetActiveIfExists(idText, local || (supa && LoginWay == 0));
+            SetActiveIfExists(nameText, lan || (supa && LoginWay == 1));
+            SetActiveIfExists(pwText, local || supa);
+            SetActiveIfExists(ipText, local);
+            SetActiveIfExists(nickText, lan);
+            SetActiveIfExists(emailText, false);
+        }
+
+        private void SetActiveIfExists(InputField field, bool active)
+        {
+            if (field != null)
+                field.gameObject.SetActive(active);
+        }
+
+        private string GetNickName()
+        {
+            if (nickText != null && !string.IsNullOrWhiteSpace(nickText.text))
+                return nickText.text.Trim();
+            if (nameText != null && !string.IsNullOrWhiteSpace(nameText.text))
+                return nameText.text.Trim();
+            return string.Empty;
+        }
+
+        private string GetAccount()
+        {
+            if (idText != null && !string.IsNullOrWhiteSpace(idText.text))
+                return idText.text.Trim();
+            if (emailText != null && !string.IsNullOrWhiteSpace(emailText.text))
+                return emailText.text.Trim();
+            return string.Empty;
+        }
+
+        private string GetUserName()
+        {
+            if (nameText != null && !string.IsNullOrWhiteSpace(nameText.text))
+                return nameText.text.Trim();
+            return string.Empty;
+        }
+
+        private string GetLoginIdentifier()
+        {
+            return LoginWay == 1 ? GetUserName() : GetAccount();
+        }
+
+        public async void OnLoginBtnClick()
+        {
+            selectedMode = NetworkMode.SupabaseOnline;
+            PlayerBasicInfoMgr.Instance.CurrentNetworkMode = selectedMode;
+
+            if (string.IsNullOrEmpty(GetLoginIdentifier()) || string.IsNullOrEmpty(pwText.text))
             {
-                pwCross.SetActive(true);
-                pwCheck = false;
-            }
-            if (LoginWay == 0)
-            {
-                if (string.IsNullOrEmpty(idText.text))
-                {
-                    IdorNameCross.SetActive(true);
-                    return;
-                }
-            }
-            if (LoginWay == 1)
-            {
-                if (string.IsNullOrEmpty(nameText.text))
-                {
-                    IdorNameCross.SetActive(true);
-                    return;
-                }
-            }
-            if (!pwCheck)
-            {
+                IdorNameCross.SetActive(true);
+                pwCross.SetActive(string.IsNullOrEmpty(pwText.text));
                 return;
             }
+
             UIManager._Instance.OpenPanel<LoadAnimPanel>();
-            MsgLoginProf msgLoginProf = new MsgLoginProf();
-            msgLoginProf.LoginMehod = LoginWay;
-            msgLoginProf.Id = idText.text;
-            msgLoginProf.Name = nameText.text;
-            msgLoginProf.pw = pwText.text;
-            NetWorkMgr.Send(msgLoginProf);
+
+            try
+            {
+                PlayerBasicInfoMgr.Instance.CurrentNetworkMode = selectedMode;
+                IBackendProvider backend = BackendProviderFactory.Create(selectedMode);
+                var credentials = new SupabaseLoginCredentials
+                {
+                    Email = LoginWay == 0 ? GetAccount() : null,
+                    Username = LoginWay == 1 ? GetUserName() : null,
+                    UseUsernameLogin = LoginWay == 1,
+                    Password = pwText.text
+                };
+
+                LoginResult result = await backend.LoginAsync(credentials);
+                if (!result.Success)
+                {
+                    UIManager._Instance.ClosePanel<LoadAnimPanel>();
+                    Debug.LogWarning($"[LoginPanel] ç™»å½•å¤±è´¥ï¼š{result.ErrorMessage}");
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(result.UserId))
+                {
+                    UIManager._Instance.ClosePanel<LoadAnimPanel>();
+                    Debug.LogError("[LoginPanel] ç™»å½•æˆåŠŸä½† UserId ä¸ºç©ºï¼Œæ— æ³•è¿›å…¥æ¸¸æˆ");
+                    return;
+                }
+
+                PlayerBasicInfo info = await backend.GetPlayerInfoAsync(result.UserId);
+                if (string.IsNullOrWhiteSpace(info.UserId))
+                {
+                    UIManager._Instance.ClosePanel<LoadAnimPanel>();
+                    Debug.LogError("[LoginPanel] GetPlayerInfo è¿”å›çš„ UserId ä¸ºç©º");
+                    return;
+                }
+
+                PlayerBasicInfoMgr.Instance.CurrentPlayer = info;
+                PlayerBasicInfoMgr.Instance.UpdatePlayerId(info.UserId);
+                PlayerBasicInfoMgr.Instance.UpdatePlayerName(info.UserName);
+
+                Debug.Log($"[LoginPanel] ç™»å½•æˆåŠŸï¼š{info.UserId}");
+                UIManager._Instance.ClosePanel<LoadAnimPanel>();
+
+                if (rememberPwToggle != null && rememberPwToggle.isOn)
+                    SaveCredentials();
+
+                StartCoroutine(LoadSceneAync());
+            }
+            catch (Exception ex)
+            {
+                UIManager._Instance.ClosePanel<LoadAnimPanel>();
+                Debug.LogError($"[LoginPanel] ç™»å½•å¼‚å¸¸ï¼š{ex}");
+            }
         }
-        public void OnRegisterBtnClick()//×¢²áÃæ°å´ò¿ª
+
+        public void OnRegisterBtnClick()
         {
             UIManager._Instance.OpenPanel<RegisterPanel>();
         }
-        public void OnMsgLoginProf(MsgBase msgBase)//ÊÕµ½µÇÂ¼Ğ­Òé//result=0ÔòÌø×ª
-        {
-            MsgLoginProf MsgBase = (MsgLoginProf)msgBase;
-            if (MsgBase.result == 1)
-            {
-                if (MsgBase.ErrType == 0)
-                {
-                    UIManager._Instance.ClosePanel<LoadAnimPanel>();
-                    pwCross.SetActive(true);
-                    return;
-                }
-                if (MsgBase.ErrType == 1)
-                {
-                    UIManager._Instance.ClosePanel<LoadAnimPanel>();
-                    IdorNameCross.SetActive(true);
-                    return;
-                }
-            }
-            PlayerBasicInfoMgr.Instance.UpdatePlayerName(MsgBase.Name);
-            PlayerBasicInfoMgr.Instance.UpdatePlayerId(MsgBase.Id);
-            Debug.Log($"µÇÂ¼³É¹¦:{PlayerBasicInfoMgr.Instance.GetID()}");
-            UIManager._Instance.ClosePanel<LoadAnimPanel>();
-            StartCoroutine(LoadSceneAync());
 
-        }
-        public void OnEndEditInfo()//ÓÃÓÚÇå³ıµ±Ç°µÄ²æºÅ
+        public void OnEndEditInfo()
         {
             if (!string.IsNullOrEmpty(pwText.text))
             {
                 pwCross.SetActive(false);
-                pwCheck = true;
             }
-            if (LoginWay == 0)
-            { if (!string.IsNullOrEmpty(idText.text)) IdorNameCross.SetActive(false); }
-            if (LoginWay == 1)
-            {
-                if (!string.IsNullOrEmpty(nameText.text)) IdorNameCross.SetActive(false);
-            }
+            if (!string.IsNullOrEmpty(GetLoginIdentifier())) IdorNameCross.SetActive(false);
         }
-        public override void OnClose()//½â³ıĞ­Òé¼àÌı
+
+        public override void InitMsgListeners()
         {
-            NetWorkMgr.RemoveMsgListener("MsgLoginProf", OnMsgLoginProf);
+            // ç™»å½•ç»“æœæ”¹ç”± LocalBackendProvider ç»Ÿä¸€å¤„ç†ï¼Œé¿å…åŒé‡å“åº”ã€‚
+        }
+
+        private void SaveCredentials()
+        {
+            PlayerPrefs.SetInt("LoginWay", LoginWay);
+            PlayerPrefs.SetString("LoginAccount", GetLoginIdentifier());
+            PlayerPrefs.SetString("LoginPassword", pwText.text);
+            PlayerPrefs.SetInt("RememberPw", 1);
+            PlayerPrefs.Save();
+        }
+
+        private void LoadSavedCredentials()
+        {
+            if (PlayerPrefs.GetInt("RememberPw", 0) == 0) return;
+
+            LoginWay = PlayerPrefs.GetInt("LoginWay", 0);
+            string savedAccount = PlayerPrefs.GetString("LoginAccount", "");
+            string savedPassword = PlayerPrefs.GetString("LoginPassword", "");
+
+            if (!string.IsNullOrEmpty(savedAccount))
+            {
+                if (LoginWay == 1 && nameText != null)
+                    nameText.text = savedAccount;
+                else if (idText != null)
+                    idText.text = savedAccount;
+            }
+            if (!string.IsNullOrEmpty(savedPassword) && pwText != null)
+                pwText.text = savedPassword;
+
+            if (rememberPwToggle != null)
+                rememberPwToggle.isOn = true;
+
+            OnClickChangeLoginWay(LoginWay);
+        }
+
+        public override void OnClose()
+        {
+            if (modeDropdown != null)
+                modeDropdown.onValueChanged.RemoveListener(OnModeChanged);
         }
     }
 }

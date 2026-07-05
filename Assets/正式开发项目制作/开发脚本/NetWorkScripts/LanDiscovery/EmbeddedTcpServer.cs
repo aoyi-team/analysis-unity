@@ -37,23 +37,26 @@ public class EmbeddedTcpServer
         Current = this;
     }
 
-    public void Start(int port)
+    public bool Start(int port)
     {
         Stop();
         try
         {
             _listenfd = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _listenfd.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _listenfd.Bind(new IPEndPoint(IPAddress.Any, port));
             _listenfd.Listen(10);
             _running = true;
             _thread = new Thread(RunLoop) { IsBackground = true, Name = "EmbeddedTcpServer" };
             _thread.Start();
             LanHostManager.Log($"[EmbeddedTcpServer] 启动成功，端口 {port}");
+            return true;
         }
         catch (Exception ex)
         {
             LanHostManager.LogError($"[EmbeddedTcpServer] 启动失败: {ex.Message}");
             Stop();
+            return false;
         }
     }
 
@@ -128,7 +131,7 @@ public class EmbeddedTcpServer
         }
         catch (Exception ex)
         {
-            LanHostManager.LogError($"[EmbeddedTcpServer] Accept 失败: {ex.Message}");
+            if (_running) LanHostManager.LogError($"[EmbeddedTcpServer] Accept 失败: {ex.Message}");
         }
     }
 

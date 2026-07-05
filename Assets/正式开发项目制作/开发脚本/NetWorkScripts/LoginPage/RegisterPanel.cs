@@ -1,39 +1,37 @@
-using BaseClasses;
+ï»¿using BaseClasses;
 using MsgFramework;
+using System;
+using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+
 namespace Panels
 {
-
     public class RegisterPanel : BasePanel
     {
-        private InputField pwText;//ÃÜÂëÊäÈë¿ò
-        private Text pwTipInfo;//ÃÜÂëÅÔÎÄ±¾ÌáÊ¾
-                               //private GameObject pwTipInfoObj;//ÃÜÂëÎÄ±¾ÌáÊ¾¿ò
-        private InputField pwReText;//ÃÜÂëÖØ¸´ÊäÈë
-        private Text pwReTipInfo;//ÖØ¸´ÊäÈëÅÔÎÄ±¾ÌáÊ¾
-                                 //private GameObject pwReTipInfoObj;//ÖØ¸´ÊäÈëÅÔÎÄ±¾¿ò
-        private Button finishRegBtn;//Íê³É×¢²á°´Å¥
-        private Button alreadyHaveBtn;//ÒÑÓµÓĞÕËºÅ(ÓÃÓÚ¹Ø±Õ×¢²á½çÃæ)
-        private GameObject pwtickImage;//pw´ò¹´Img
-        private GameObject pwcrossImage;//pw´ò²æImg
-        private GameObject pwRetickImage;//pwRe´ò¹´Img
-        private GameObject pwRecrossImage;//pwRe´ò²æImg
+        private InputField pwText;
+        private Text pwTipInfo;
+        private InputField pwReText;
+        private Text pwReTipInfo;
+        private Button finishRegBtn;
+        private Button alreadyHaveBtn;
+        private GameObject pwtickImage;
+        private GameObject pwcrossImage;
+        private GameObject pwRetickImage;
+        private GameObject pwRecrossImage;
         private bool pwCheck = false;
         private bool pwRegCheck = false;
-        /*public override void Open(params object[] args)//´ò¿ª×¢²áÃæ°å
-        {
-            PanelName = "RegisterPanel";
-            GameObject o=ResMgr.LoadPanelPrefabs(PanelName);
-            PanelObj = Instantiate(o);
-            PanelObj.name = "RegisterPanel";
-            PanelObj.transform.SetParent(transform);
-        }*/
-        public override void Close(params object[] args)//¹Ø±Õ×¢²áÃæ°å
+
+        // Supabase æ³¨å†Œç”¨çš„å¯é€‰é‚®ç®±è¾“å…¥æ¡†
+        private InputField emailText;
+
+        public override void Close(params object[] args)
         {
             base.Close(args);
         }
-        public override void Init(params object[] args)//×¢²áÃæ°å³õÊ¼»¯
+
+        public override void Init(params object[] args)
         {
             PanelName = "RegisterPanel";
             GameObject o = ResMgr.LoadPanelPrefabs(PanelName);
@@ -41,38 +39,97 @@ namespace Panels
             PanelObj.name = "RegisterPanel";
             PanelObj.transform.SetParent(transform);
             IsPersistence = true;
+
             pwText = transform.Find("RegisterPanel/RegisterPageBG/pwInputBG/pwInputfield").GetComponent<InputField>();
             pwReText = transform.Find("RegisterPanel/RegisterPageBG/pwReInputBG/pwReInputfield").GetComponent<InputField>();
             finishRegBtn = transform.Find("RegisterPanel/RegisterPageBG/RegisterBtn").GetComponent<Button>();
             alreadyHaveBtn = transform.Find("RegisterPanel/RegisterPageBG/BackBtn").GetComponent<Button>();
             pwTipInfo = transform.Find("RegisterPanel/TipsInfos/pwTipInfo/Infoholder").GetComponent<Text>();
-            //pwTipInfoObj = pwTipInfo.transform.parent.gameObject;
             pwReTipInfo = transform.Find("RegisterPanel/TipsInfos/pwReTipInfo/Infoholder").GetComponent<Text>();
-            //pwReTipInfoObj = pwReTipInfo.transform.parent.gameObject;
             pwtickImage = transform.Find("RegisterPanel/CrossOrTickImg/pwImg/Tick").gameObject;
             pwcrossImage = transform.Find("RegisterPanel/CrossOrTickImg/pwImg/Cross").gameObject;
             pwRetickImage = transform.Find("RegisterPanel/CrossOrTickImg/pwReImg/Tick").gameObject;
             pwRecrossImage = transform.Find("RegisterPanel/CrossOrTickImg/pwReImg/Cross").gameObject;
+
+            emailText = GetOptionalInputField("RegisterPanel/RegisterPageBG/EmailInputBG/EmailInputfield");
+
             gameObject.name = "RegisterPage";
+            PlayerBasicInfoMgr.Instance.CurrentNetworkMode = NetworkMode.SupabaseOnline;
+            BackendProviderFactory.Create(NetworkMode.SupabaseOnline);
+
             finishRegBtn.onClick.AddListener(OnClickFinRegBtn);
-            alreadyHaveBtn.onClick.AddListener(() =>UIManager._Instance.ClosePanel<RegisterPanel>());
+            alreadyHaveBtn.onClick.AddListener(() => UIManager._Instance.ClosePanel<RegisterPanel>());
             pwText.onValueChanged.AddListener((text) => OnPasswordChange("pwInputfield"));
             pwReText.onEndEdit.AddListener((text) => OnPasswordChange("pwReInputfield"));
             InitMsgListeners();
         }
+
+        private InputField GetOptionalInputField(string path)
+        {
+            Transform t = transform.Find(path);
+            if (t == null) return null;
+            return t.GetComponent<InputField>();
+        }
+
         public override void InitMsgListeners()
         {
-            NetWorkMgr.AddMsgListener("MsgRegisterProf", OnMsgRegisterProf);
+            // ç°åœ¨æ³¨å†Œåªèµ° Supabase Authï¼Œä¸å†ç›‘å¬æœ¬åœ°æœåŠ¡å™¨æ³¨å†Œå›è°ƒã€‚
         }
-        public void OnClickFinRegBtn()//×¢²á°´Å¥»Øµ÷
+
+        public async void OnClickFinRegBtn()
         {
             if (!PasswordCheck()) return;
+
+            PlayerBasicInfoMgr.Instance.CurrentNetworkMode = NetworkMode.SupabaseOnline;
+
             UIManager._Instance.OpenPanel<LoadAnimPanel>();
-            MsgRegisterProf msg = new();
-            msg.pw = pwText.text;
-            NetWorkMgr.Send(msg);
+
+            try
+            {
+                await RegisterSupabaseAsync();
+            }
+            catch (Exception ex)
+            {
+                UIManager._Instance.ClosePanel<LoadAnimPanel>();
+                Debug.LogError($"[RegisterPanel] æ³¨å†Œå¼‚å¸¸ï¼š{ex}");
+            }
         }
-        private bool PasswordCheck()//·¢ËÍĞ­ÒéÊ±ºò¼ì²é
+
+        private async Task RegisterSupabaseAsync()
+        {
+            string email = emailText != null ? emailText.text.Trim() : string.Empty;
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                UIManager._Instance.ClosePanel<LoadAnimPanel>();
+                Debug.LogWarning("[RegisterPanel] Supabase æ³¨å†Œéœ€è¦é‚®ç®±");
+                return;
+            }
+
+            IBackendProvider backend = PlayerBasicInfoMgr.Instance.CurrentBackend;
+            if (backend == null)
+            {
+                backend = BackendProviderFactory.Create(NetworkMode.SupabaseOnline);
+            }
+
+            RegisterResult result = await backend.RegisterAsync(new SupabaseLoginCredentials
+            {
+                Email = email,
+                Password = pwText.text
+            });
+
+            if (!result.Success)
+            {
+                UIManager._Instance.ClosePanel<LoadAnimPanel>();
+                Debug.LogWarning($"[RegisterPanel] æ³¨å†Œå¤±è´¥ï¼š{result.ErrorMessage}");
+                return;
+            }
+
+            UIManager._Instance.ClosePanel<LoadAnimPanel>();
+            UIManager._Instance.ClosePanel<RegisterPanel>();
+            Debug.Log("[RegisterPanel] Supabase æ³¨å†ŒæˆåŠŸï¼Œè¯·ä½¿ç”¨è¯¥è´¦å·ç™»å½•åè¿›å…¥æ¸¸æˆ");
+        }
+
+        private bool PasswordCheck()
         {
             if (pwCheck == false)
             {
@@ -83,15 +140,15 @@ namespace Panels
                 return false;
             }
             return true;
-
         }
-        public void OnPasswordChange(string TextName)//pwTextField-OnValuedChanged//pwReField-Onendedit
+
+        public void OnPasswordChange(string TextName)
         {
-            if (TextName == pwText.name)//¼ì²âÃÜÂë¿ò
+            if (TextName == pwText.name)
             {
                 if (pwReText.text != pwText.text && !string.IsNullOrEmpty(pwReText.text))
                 {
-                    pwReTipInfo.text = "Á½´ÎÃÜÂëÊäÈë²»Ò»ÖÂ!\r\n";
+                    pwReTipInfo.text = "ä¸¤æ¬¡è¾“å…¥çš„å¯†ç ä¸ä¸€è‡´!\r\n";
                     pwReTipInfo.transform.parent.gameObject.SetActive(true);
                     pwRetickImage.SetActive(false);
                     pwRecrossImage.SetActive(true);
@@ -100,7 +157,7 @@ namespace Panels
                 }
                 if (string.IsNullOrEmpty(pwText.text))
                 {
-                    pwTipInfo.text = "ÃÜÂë²»ÄÜÎª¿Õ!";
+                    pwTipInfo.text = "å¯†ç ä¸èƒ½ä¸ºç©º!";
                     pwTipInfo.transform.parent.gameObject.SetActive(true);
                     pwtickImage.SetActive(false);
                     pwcrossImage.SetActive(true);
@@ -109,7 +166,7 @@ namespace Panels
                 }
                 if (!(pwText.text.Length < 11 && pwText.text.Length > 5))
                 {
-                    pwTipInfo.text = "ÃÜÂë³¤¶È²»·ûºÏ!";
+                    pwTipInfo.text = "å¯†ç é•¿åº¦ä¸ç¬¦åˆ!";
                     pwTipInfo.transform.parent.gameObject.SetActive(true);
                     pwtickImage.SetActive(false);
                     pwcrossImage.SetActive(true);
@@ -121,7 +178,7 @@ namespace Panels
                 pwtickImage.SetActive(true);
                 pwCheck = true;
             }
-            if (TextName == pwReText.name)//¼ì²âÃÜÂëÖØ¸´ÊäÈë¿ò
+            if (TextName == pwReText.name)
             {
                 if (string.IsNullOrEmpty(pwText.text))
                 {
@@ -132,7 +189,7 @@ namespace Panels
                 }
                 if (pwReText.text != pwText.text)
                 {
-                    pwReTipInfo.text = "Á½´ÎÃÜÂëÊäÈë²»Ò»ÖÂ!\r\n";
+                    pwReTipInfo.text = "ä¸¤æ¬¡è¾“å…¥çš„å¯†ç ä¸ä¸€è‡´!\r\n";
                     pwReTipInfo.transform.parent.gameObject.SetActive(true);
                     pwRetickImage.SetActive(false);
                     pwRecrossImage.SetActive(true);
@@ -145,20 +202,13 @@ namespace Panels
                 pwRegCheck = true;
             }
         }
-        public void OnMsgRegisterProf(MsgBase msgBase)//ÊÕµ½·şÎñ¶ËµÄ×¢²áĞ­Òé·´À¡
+
+        public void OnMsgRegisterProf(MsgBase msgBase)
         {
-            MsgRegisterProf msg = (MsgRegisterProf)msgBase;
-            if (msg.result == 1)//Ê§°Ü
-            {
-                UIManager._Instance.ClosePanel<LoadAnimPanel>();
-                return;
-            }
             UIManager._Instance.ClosePanel<LoadAnimPanel>();
-            PlayerBasicInfoMgr.Instance.UpdatePlayerId(msg.Id);
-            UIManager._Instance.ClosePanel<RegisterPanel>();
-            UIManager._Instance.ClosePanel<LoginPanel>();
-            UIManager._Instance.OpenPanel<UploadNamePanel>();
+            Debug.LogWarning("[RegisterPanel] å·²å¿½ç•¥æœ¬åœ°æ³¨å†Œå›è°ƒï¼šå½“å‰åªå…è®¸ Supabase æ³¨å†Œ/ç™»å½•");
         }
+
         public override void OnClose()
         {
             NetWorkMgr.RemoveMsgListener("MsgRegisterProf", OnMsgRegisterProf);

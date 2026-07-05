@@ -64,8 +64,8 @@ public class LanHostManager : MonoBehaviour
         }
     }
 
-    /// <summary>启动内嵌主机并广播房间信息</summary>
-    public void StartHosting(RoomInfo room)
+    /// <summary>启动内嵌主机并广播房间信息。若默认端口被占用，会自动尝试后续端口。</summary>
+    public bool StartHosting(RoomInfo room)
     {
         if (_isHosting)
         {
@@ -73,7 +73,18 @@ public class LanHostManager : MonoBehaviour
         }
 
         string localIp = GetLocalIp();
-        room.HostEndpoint = new NetworkEndpoint(localIp, ServerConfig.TcpPort, localIp, ServerConfig.UdpPort);
+
+        // 尝试在默认端口范围内寻找可用端口
+        int tcpPort = FindAvailablePort(ServerConfig.TcpPort, ServerConfig.TcpPort + 20);
+        int udpPort = FindAvailablePort(ServerConfig.UdpPort, ServerConfig.UdpPort + 20);
+
+        if (tcpPort <= 0 || udpPort <= 0)
+        {
+            LogError($"[LanHostManager] 在端口范围 {ServerConfig.TcpPort}-{ServerConfig.TcpPort + 20} / {ServerConfig.UdpPort}-{ServerConfig.UdpPort + 20} 内未找到可用端口，无法启动主机");
+            return false;
+        }
+
+        room.HostEndpoint = new NetworkEndpoint(localIp, tcpPort, localIp, udpPort);
         room.CurrentPlayers = 0;
         room.Status = RoomStatus.Waiting;
 
@@ -83,15 +94,49 @@ public class LanHostManager : MonoBehaviour
         _tcpServer = new EmbeddedTcpServer();
         _tcpServer.OnClientConnected += OnClientConnected;
         _tcpServer.OnClientDisconnected += OnClientDisconnected;
-        _tcpServer.Start(ServerConfig.TcpPort);
+        bool tcpOk = _tcpServer.Start(tcpPort);
 
         _udpServer = new EmbeddedUdpServer();
         _udpServer.OnBattleReadyReceived += OnBattleReadyReceived;
-        _udpServer.Start(ServerConfig.UdpPort, room.RoomId);
+        bool udpOk = _udpServer.Start(udpPort, room.RoomId);
+
+        if (!tcpOk || !udpOk)
+        {
+            LogError($"[LanHostManager] 端口 {tcpPort}/{udpPort} 启动失败，无法启动主机");
+            _tcpServer?.Stop();
+            _udpServer?.Stop();
+            _tcpServer = null;
+            _udpServer = null;
+            _room = null;
+            return false;
+        }
 
         _isHosting = true;
         beaconSender.StartBroadcast(_room.ToRoomInfo());
-        Log($"[LanHostManager] 开始内嵌主机，房间 {room.RoomId}，IP {localIp}");
+        Log($"[LanHostManager] 开始内嵌主机，房间 {room.RoomId}，IP {localIp}，TCP端口 {tcpPort}，UDP端口 {udpPort}");
+        return true;
+    }
+
+    /// <summary>在指定范围内查找一个可用端口</summary>
+    private static int FindAvailablePort(int startPort, int endPort)
+    {
+        for (int port = startPort; port <= endPort; port++)
+        {
+            try
+            {
+                using (var testSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+                {
+                    testSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    testSocket.Bind(new IPEndPoint(IPAddress.Any, port));
+                    return port;
+                }
+            }
+            catch
+            {
+                // 端口被占用，继续尝试下一个
+            }
+        }
+        return -1;
     }
 
     /// <summary>停止内嵌主机并释放资源</summary>
@@ -142,7 +187,10 @@ public class LanHostManager : MonoBehaviour
 
     private void OnBattleReadyReceived(MsgBattleReady msg, IPEndPoint endpoint)
     {
-        _room?.StartGame();
+        if (_room != null && _room.RoomInfo.Status != RoomStatus.Playing)
+        {
+            _room.StartGame();
+        }
         var state = FindClientByUserId(msg.userId.ToString("D6"));
         if (state != null)
         {
@@ -161,24 +209,84 @@ public class LanHostManager : MonoBehaviour
         return null;
     }
 
+    /// <summary>
+    /// 获取本机局域网地址，优先选局域网 IP，排除代理/VPN 虚拟网卡。
+    /// </summary>
     private string GetLocalIp()
     {
         try
         {
             IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
+            IPAddress bestCandidate = null;
+
+            var allIps = new System.Collections.Generic.List<string>();
+            var privateIps = new System.Collections.Generic.List<IPAddress>();
+
             foreach (IPAddress ip in host.AddressList)
             {
-                if (ip.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(ip))
+                if (ip.AddressFamily != AddressFamily.InterNetwork || IPAddress.IsLoopback(ip))
+                    continue;
+
+                byte[] bytes = ip.GetAddressBytes();
+                allIps.Add(ip.ToString());
+
+                // 排除代理/VPN 网段（Clash/V2Ray 常用的 198.18.0.0/15）
+                if (bytes[0] == 198 && bytes[1] >= 18 && bytes[1] <= 19)
+                    continue;
+
+                if (IsPrivateIPv4(bytes))
                 {
-                    return ip.ToString();
+                    privateIps.Add(ip);
+                }
+                else if (bestCandidate == null)
+                {
+                    bestCandidate = ip;
                 }
             }
+
+            Log($"[LanHostManager] 本机所有 IPv4: {string.Join(", ", allIps)}");
+
+            // 优先 192.168.x.x
+            foreach (var ip in privateIps)
+            {
+                byte[] bytes = ip.GetAddressBytes();
+                if (bytes[0] == 192 && bytes[1] == 168)
+                    return ip.ToString();
+            }
+
+            // 其次 10.x.x.x
+            foreach (var ip in privateIps)
+            {
+                byte[] bytes = ip.GetAddressBytes();
+                if (bytes[0] == 10)
+                    return ip.ToString();
+            }
+
+            // 172.16-31.x.x（可能是 WSL2，但如果没有其他选择就用它）
+            foreach (var ip in privateIps)
+            {
+                byte[] bytes = ip.GetAddressBytes();
+                if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+                    return ip.ToString();
+            }
+
+            if (bestCandidate != null)
+                return bestCandidate.ToString();
         }
         catch (Exception ex)
         {
             LogError($"[LanHostManager] 获取本地 IP 失败: {ex.Message}");
         }
+
         return "127.0.0.1";
+    }
+
+    private static bool IsPrivateIPv4(byte[] bytes)
+    {
+        if (bytes[0] == 10) return true;
+        if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) return true;
+        if (bytes[0] == 192 && bytes[1] == 168) return true;
+        return false;
     }
 
     private void OnDestroy()

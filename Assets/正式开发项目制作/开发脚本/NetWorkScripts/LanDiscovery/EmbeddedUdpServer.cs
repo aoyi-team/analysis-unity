@@ -32,7 +32,7 @@ public class EmbeddedUdpServer
 
     public event Action<MsgBattleReady, IPEndPoint> OnBattleReadyReceived;
 
-    public void Start(int port, string roomId)
+    public bool Start(int port, string roomId)
     {
         Stop();
         _roomId = roomId;
@@ -41,6 +41,7 @@ public class EmbeddedUdpServer
         try
         {
             _server = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            _server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _server.Bind(new IPEndPoint(IPAddress.Any, port));
             _server.IOControl(SIO_UDP_CONNRESET, new byte[] { 0, 0, 0, 0 }, null);
             _running = true;
@@ -49,11 +50,13 @@ public class EmbeddedUdpServer
             _recvThread.Start();
             _broadcastThread.Start();
             LanHostManager.Log($"[EmbeddedUdpServer] 启动成功，端口 {port}");
+            return true;
         }
         catch (Exception ex)
         {
             LanHostManager.LogError($"[EmbeddedUdpServer] 启动失败: {ex.Message}");
             Stop();
+            return false;
         }
     }
 

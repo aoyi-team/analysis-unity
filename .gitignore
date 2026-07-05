@@ -71,6 +71,14 @@ sysinfo.txt
 *.private.meta
 *.private.*
 *.private.*.meta
+Assets/Resources/SupabaseConfig.asset
+Assets/Resources/SupabaseConfig.asset.meta
+
+# Local abandoned assets kept out of GitHub
+/_AbandonedLocal/
+/AbandonedLocal/
+/NotForGitHub/
+/联盟/
 
 # Crashlytics
 crashlytics-build.properties

@@ -46,7 +46,10 @@ public class LanBeaconReceiver : MonoBehaviour
 
         try
         {
-            _udpClient = new UdpClient(ServerConfig.LanBroadcastPort);
+            // ���� SO_REUSEADDR����ͬһ̨�������ͻ��˿�ͬʱ���� Beacon
+            _udpClient = new UdpClient();
+            _udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, ServerConfig.LanBroadcastPort));
             _udpClient.EnableBroadcast = true;
 
             if (!string.IsNullOrEmpty(ServerConfig.LanMulticastAddress))
@@ -59,7 +62,7 @@ public class LanBeaconReceiver : MonoBehaviour
             _lastTimeoutCheck = Time.time;
 
             _ = ReceiveLoopAsync(_cts.Token);
-            Debug.Log($"[LAN] 开始在端口 {ServerConfig.LanBroadcastPort} 监听 Beacon");
+            Debug.Log($"[LAN] 开始在端口 {ServerConfig.LanBroadcastPort} 监听 Beacon（已启用地址复用）");
         }
         catch (Exception ex)
         {
