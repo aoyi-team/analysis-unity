@@ -6,6 +6,9 @@
 
 - [project-analysis.md](project-analysis.md): 当前项目分析，包括技术栈、目录结构、运行链路、资源组织、风险点和后续整理建议。
 - [cleanup-analysis.md](cleanup-analysis.md): 无用资源清理候选、清理风险、验收标准和空间收益估算。
+- [structure-organization-plan.md](structure-organization-plan.md): 项目结构整理规划，包括目标结构、分阶段迁移方案和验收标准。
+- [build-size-resource-stripping-plan.md](build-size-resource-stripping-plan.md): 打包体积、Resources、Addressables、平台过滤、Managed Stripping 和 asmdef/Editor 隔离规划。
+- [resources-map.md](resources-map.md): `Assets/Resources` 当前资源登记、动态加载路径、迁移优先级和移动前检查清单。
 
 ## 当前结论
 

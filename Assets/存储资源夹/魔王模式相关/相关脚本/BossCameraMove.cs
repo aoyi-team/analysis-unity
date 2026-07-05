@@ -2,19 +2,18 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Cinemachine;
-using Photon.Pun.Demo.PunBasics;
 
 public class BossCameraMove : MonoBehaviour
 {
     public CinemachineVirtualCamera virtualCamera;
     public Transform target1;
     public Transform target2;
-    public float dampingSpeed = 2f; // ¿ØÖÆ¸úËæµÄËÙ¶È
-    public float targetFov ; // Ä¿±êÊÓÒ°½Ç¶È
-    public float duration = 3f; // ±ä»¯³ÖÐøÊ±¼ä
+    public float dampingSpeed = 2f; // ï¿½ï¿½ï¿½Æ¸ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½
+    public float targetFov ; // Ä¿ï¿½ï¿½ï¿½ï¿½Ò°ï¿½Ç¶ï¿½
+    public float duration = 3f; // ï¿½ä»¯ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
 
 
-    [Header("Ê±¼äÒòËØ")]
+    [Header("Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½")]
     public float TimeFactor=1f;
 
     private CinemachineFramingTransposer framingTransposer;
@@ -46,7 +45,7 @@ public class BossCameraMove : MonoBehaviour
     {
         if (isSwitchingTarget)
         {
-            // ¶¯Ì¬¿ØÖÆÄ¿±êµÄ»º¶¯Ð§¹û
+            // ï¿½ï¿½Ì¬ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½Ä»ï¿½ï¿½ï¿½Ð§ï¿½ï¿½
             framingTransposer.m_YDamping = Mathf.Lerp(framingTransposer.m_YDamping, dampingSpeed, Time.deltaTime*TimeFactor);
             framingTransposer.m_XDamping = Mathf.Lerp(framingTransposer.m_XDamping, dampingSpeed, Time.deltaTime * TimeFactor);
             framingTransposer.m_ZDamping = Mathf.Lerp(framingTransposer.m_ZDamping, dampingSpeed, Time.deltaTime * TimeFactor);
@@ -81,6 +80,6 @@ public class BossCameraMove : MonoBehaviour
             virtualCamera.m_Lens.OrthographicSize=Mathf.Lerp(startFov, endFov, time / duration);
             yield return null;
         }
-        virtualCamera.m_Lens.OrthographicSize = endFov; // È·±£×îÖÕÖµÕýÈ·
+        virtualCamera.m_Lens.OrthographicSize = endFov; // È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½È·
     }
 }

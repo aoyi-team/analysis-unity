@@ -1,4 +1,3 @@
-using Photon.Pun.Demo.Asteroids;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -38,14 +37,14 @@ public class DiShiTianHuoDong : MonoBehaviour
         myRigid = GetComponent<Rigidbody2D>();
         DiShiTianAnimator = gameObject.GetComponent<Animator>();
         AttackCoolImage = GameObject.Find("AttackHuan").GetComponent<Image>();
-        SpaceCoolImage = GameObject.Find("SpaceHuan").GetComponent<Image>();//²éÕÒ»º´æÍ¼±ê£¨ºÚÉ«µÄ£©
+        SpaceCoolImage = GameObject.Find("SpaceHuan").GetComponent<Image>();//ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Í¼ï¿½ê£¨ï¿½ï¿½É«ï¿½Ä£ï¿½
     }
     void Update()
     {
         StateChange();
         ImageHuanCun();
     }
-    public void Run()//×ßÂ·½Å±¾
+    public void Run()//ï¿½ï¿½Â·ï¿½Å±ï¿½
     {
         float movedirx = Input.GetAxis("Horizontal");
         float movediry = Input.GetAxis("Vertical");
@@ -53,7 +52,7 @@ public class DiShiTianHuoDong : MonoBehaviour
         myRigid.velocity = playervel;
 
     }
-    private void Attack()//µÛÊÍÌìÆÕ¹¥
+    private void Attack()//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½
     {
         if (NowAttackCool >= AttackCool) { CanAttack = true; NowAttackCool = 0f; }
         if (!CanAttack) NowAttackCool += Time.deltaTime;
@@ -71,7 +70,7 @@ public class DiShiTianHuoDong : MonoBehaviour
 
         }
     }
-    private void AoyiK()//µÛÊÍÌì°ÂÒå
+    private void AoyiK()//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     {
         if (!CanSpace) NowSpaceCool += Time.deltaTime;
         if (NowSpaceCool >= SpaceCool) { CanSpace = true; NowSpaceCool = 0f; }
@@ -112,7 +111,7 @@ public class DiShiTianHuoDong : MonoBehaviour
     }
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.CompareTag("GoldenCoin"))//Ê°È¡½ð±ÒÐ§¹û
+        if (collision.CompareTag("GoldenCoin"))//Ê°È¡ï¿½ï¿½ï¿½Ð§ï¿½ï¿½
         {
             CoinPickUp(collision.gameObject.tag);
             Destroy(collision.gameObject);
@@ -133,7 +132,7 @@ public class DiShiTianHuoDong : MonoBehaviour
         }
 
     }
-    private void CoinPickUp(string CoinTag)//¼Ó·ÖÂß¼­
+    private void CoinPickUp(string CoinTag)//ï¿½Ó·ï¿½ï¿½ß¼ï¿½
     {
         ThisAudioSource.PlayOneShot(AudioEffects.ScorePickAudio);
         if (CoinTag == "GoldenCoin")
@@ -143,7 +142,7 @@ public class DiShiTianHuoDong : MonoBehaviour
         if (CoinTag == "TongCoin") TargetLeveupAndCoin.PlayerScore += 10;
         if (CoinTag == "SliverCoin") TargetLeveupAndCoin.PlayerScore += 100;
     }
-    private void ImageHuanCun()//Í¼±ê»º´æ
+    private void ImageHuanCun()//Í¼ï¿½ê»ºï¿½ï¿½
     {
         if (CanAttack == true) AttackCoolImage.fillAmount = 0f;
         else AttackCoolImage.fillAmount = (AttackCool - NowAttackCool) / AttackCool;

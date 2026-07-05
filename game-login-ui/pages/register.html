@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>奥义传说 - 创建账号</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css" rel="stylesheet">
+    <style id="theme-vars">
+{"color":{"bg":{"background":{"hex":"#ffffff","opacity":"1"},"card":{"hex":"#ffffff","opacity":"1"},"popover":{"hex":"#ffffff","opacity":"1"},"muted":{"hex":"#f5f5f5","opacity":"1"}},"text":{"foreground":{"hex":"#0a0a0a","opacity":"1"},"card-foreground":{"hex":"#0a0a0a","opacity":"1"},"popover-foreground":{"hex":"#0a0a0a","opacity":"1"},"primary-foreground":{"hex":"#fafafa","opacity":"1"},"secondary-foreground":{"hex":"#171717","opacity":"1"},"muted-foreground":{"hex":"#858585","opacity":"1"},"accent-foreground":{"hex":"#171717","opacity":"1"},"destructive-foreground":{"hex":"#ffffff","opacity":"1"}},"accent":{"primary":{"hex":"#121212","opacity":"1"},"secondary":{"hex":"#f5f5f5","opacity":"1"},"accent":{"hex":"#f5f5f5","opacity":"1"},"input":{"hex":"#e5e5e5","opacity":"1"},"ring":{"hex":"#0d0d0d","opacity":"1"}},"border":{"border":{"hex":"#e8e8e8","opacity":"1"}},"status":{"destructive":{"hex":"#e7000b","opacity":"1"}},"chart":{"chart-1":{"hex":"#91c5ff","opacity":"1"},"chart-2":{"hex":"#3a81f6","opacity":"1"},"chart-3":{"hex":"#2563ef","opacity":"1"},"chart-4":{"hex":"#1a4eda","opacity":"1"},"chart-5":{"hex":"#1f3fad","opacity":"1"}},"sidebar":{"sidebar":{"hex":"#fafafa","opacity":"1"},"sidebar-foreground":{"hex":"#0a0a0a","opacity":"1"},"sidebar-primary":{"hex":"#171717","opacity":"1"},"sidebar-primary-foreground":{"hex":"#fafafa","opacity":"1"},"sidebar-accent":{"hex":"#f5f5f5","opacity":"1"},"sidebar-accent-foreground":{"hex":"#171717","opacity":"1"},"sidebar-border":{"hex":"#e5e5e5","opacity":"1"},"sidebar-ring":{"hex":"#a1a1a1","opacity":"1"}},"dark":{"background":{"hex":"#0a0a0a","opacity":"1"},"card":{"hex":"#171717","opacity":"1"},"popover":{"hex":"#262626","opacity":"1"},"muted":{"hex":"#262626","opacity":"1"},"foreground":{"hex":"#fafafa","opacity":"1"},"card-foreground":{"hex":"#fafafa","opacity":"1"},"popover-foreground":{"hex":"#fafafa","opacity":"1"},"primary-foreground":{"hex":"#171717","opacity":"1"},"secondary-foreground":{"hex":"#fafafa","opacity":"1"},"muted-foreground":{"hex":"#a1a1a1","opacity":"1"},"accent-foreground":{"hex":"#fafafa","opacity":"1"},"destructive-foreground":{"hex":"#fafafa","opacity":"1"},"primary":{"hex":"#e5e5e5","opacity":"1"},"secondary":{"hex":"#262626","opacity":"1"},"accent":{"hex":"#404040","opacity":"1"},"input":{"hex":"#343434","opacity":"1"},"ring":{"hex":"#737373","opacity":"1"},"border":{"hex":"#282828","opacity":"1"},"destructive":{"hex":"#ff6467","opacity":"1"},"chart-1":{"hex":"#91c5ff","opacity":"1"},"chart-2":{"hex":"#3a81f6","opacity":"1"},"chart-3":{"hex":"#2563ef","opacity":"1"},"chart-4":{"hex":"#1a4eda","opacity":"1"},"chart-5":{"hex":"#1f3fad","opacity":"1"},"sidebar":{"hex":"#171717","opacity":"1"},"sidebar-foreground":{"hex":"#fafafa","opacity":"1"},"sidebar-primary":{"hex":"#1447e6","opacity":"1"},"sidebar-primary-foreground":{"hex":"#fafafa","opacity":"1"},"sidebar-accent":{"hex":"#262626","opacity":"1"},"sidebar-accent-foreground":{"hex":"#fafafa","opacity":"1"},"sidebar-border":{"hex":"#282828","opacity":"1"},"sidebar-ring":{"hex":"#525252","opacity":"1"},"shadow-2xs":{"hex":"#000000","opacity":"0"},"shadow-2xl":{"hex":"#000000","opacity":"0"}}},"font":{"family":{"font-sans":"Geist, ui-sans-serif, sans-serif, system-ui","font-serif":"DM Serif Display, ui-serif, serif","font-mono":"Geist Mono, ui-monospace, monospace"},"size":{},"weight":{},"lineHeight":{}},"shadow":{"shadow-xs":{"xOffset":"0px","yOffset":"1px","blur":"0px","spread":"0px","color":{"hex":"#000000","opacity":"0"}},"shadow-sm":{"xOffset":"0px","yOffset":"1px","blur":"0px","spread":"0px","color":{"hex":"#000000","opacity":"0"}},"shadow":{"xOffset":"0px","yOffset":"1px","blur":"0px","spread":"0px","color":{"hex":"#000000","opacity":"0"}},"shadow-md":{"xOffset":"0px","yOffset":"1px","blur":"0px","spread":"0px","color":{"hex":"#000000","opacity":"0"}},"shadow-lg":{"xOffset":"0px","yOffset":"1px","blur":"0px","spread":"0px","color":{"hex":"#000000","opacity":"0"}},"shadow-xl":{"xOffset":"0px","yOffset":"1px","blur":"0px","spread":"0px","color":{"hex":"#000000","opacity":"0"}}},"radius":{"radius":"8px"},"spacing":{"spacing":"4px"},"size":{}}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: rgb(255,255,255);
+    --color-foreground: rgb(10,10,10);
+    --color-card: rgb(255,255,255);
+    --color-card-foreground: rgb(10,10,10);
+    --color-popover: rgb(255,255,255);
+    --color-popover-foreground: rgb(10,10,10);
+    --color-primary: rgb(18,18,18);
+    --color-primary-foreground: rgb(250,250,250);
+    --color-secondary: rgb(245,245,245);
+    --color-secondary-foreground: rgb(23,23,23);
+    --color-muted: rgb(245,245,245);
+    --color-muted-foreground: rgb(133,133,133);
+    --color-accent: rgb(245,245,245);
+    --color-accent-foreground: rgb(23,23,23);
+    --color-destructive: rgb(231,0,11);
+    --color-destructive-foreground: rgb(255,255,255);
+    --color-input: rgb(229,229,229);
+    --color-ring: rgb(13,13,13);
+    --color-border: rgb(232,232,232);
+    --color-chart-1: rgb(145,197,255);
+    --color-chart-2: rgb(58,129,246);
+    --color-chart-3: rgb(37,99,239);
+    --color-chart-4: rgb(26,78,218);
+    --color-chart-5: rgb(31,63,173);
+    --color-sidebar: rgb(250,250,250);
+    --color-sidebar-foreground: rgb(10,10,10);
+    --color-sidebar-primary: rgb(23,23,23);
+    --color-sidebar-primary-foreground: rgb(250,250,250);
+    --color-sidebar-accent: rgb(245,245,245);
+    --color-sidebar-accent-foreground: rgb(23,23,23);
+    --color-sidebar-border: rgb(229,229,229);
+    --color-sidebar-ring: rgb(161,161,161);
+    --radius: 8px;
+    --font-sans: 'Geist', ui-sans-serif, sans-serif, system-ui;
+    --font-serif: 'DM Serif Display', ui-serif, serif;
+    --font-mono: 'Geist Mono', ui-monospace, monospace;
+  }
+  .dark {
+    --color-background: rgb(10,10,10);
+    --color-foreground: rgb(250,250,250);
+    --color-card: rgb(23,23,23);
+    --color-card-foreground: rgb(250,250,250);
+    --color-popover: rgb(38,38,38);
+    --color-popover-foreground: rgb(250,250,250);
+    --color-primary: rgb(229,229,229);
+    --color-primary-foreground: rgb(23,23,23);
+    --color-secondary: rgb(38,38,38);
+    --color-secondary-foreground: rgb(250,250,250);
+    --color-muted: rgb(38,38,38);
+    --color-muted-foreground: rgb(161,161,161);
+    --color-accent: rgb(64,64,64);
+    --color-accent-foreground: rgb(250,250,250);
+    --color-destructive: rgb(255,100,103);
+    --color-destructive-foreground: rgb(250,250,250);
+    --color-input: rgb(52,52,52);
+    --color-ring: rgb(115,115,115);
+    --color-border: rgb(40,40,40);
+    --color-chart-1: rgb(145,197,255);
+    --color-chart-2: rgb(58,129,246);
+    --color-chart-3: rgb(37,99,239);
+    --color-chart-4: rgb(26,78,218);
+    --color-chart-5: rgb(31,63,173);
+    --color-sidebar: rgb(23,23,23);
+    --color-sidebar-foreground: rgb(250,250,250);
+    --color-sidebar-primary: rgb(20,71,230);
+    --color-sidebar-primary-foreground: rgb(250,250,250);
+    --color-sidebar-accent: rgb(38,38,38);
+    --color-sidebar-accent-foreground: rgb(250,250,250);
+    --color-sidebar-border: rgb(40,40,40);
+    --color-sidebar-ring: rgb(82,82,82);
+  }
+  @layer base {
+    body { background: var(--color-background); color: var(--color-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="font-sans antialiased overflow-hidden" style="margin:0; padding:0;">
+    <main class="flex w-screen h-screen items-center justify-center bg-background">
+      <div class="w-full max-w-[400px] mx-4 bg-card border border-border rounded-md p-8 overflow-y-auto" style="max-height: 92vh; width: 380px; height: 560px;">
+        <h1 class="font-serif text-2xl tracking-tight text-center text-card-foreground">奥义联盟</h1>
+        <p class="text-sm text-center text-muted-foreground mt-1">创建新账号</p>
+        <div class="border-b border-border my-6"></div>
+        <form onsubmit="return false;" class="flex flex-col gap-4">
+          <div>
+            <label class="block text-xs text-muted-foreground mb-1.5">用户名</label>
+            <input type="text" placeholder="请输入用户名" autocomplete="username" class="w-full bg-input border border-border text-card-foreground placeholder-muted-foreground px-3 py-2 text-sm outline-none transition-colors rounded-md focus:ring-1 focus:ring-ring focus:border-ring">
+          </div>
+          <div>
+            <label class="block text-xs text-muted-foreground mb-1.5">邮箱</label>
+            <input type="email" placeholder="name@example.com" autocomplete="email" class="w-full bg-input border border-border text-card-foreground placeholder-muted-foreground px-3 py-2 text-sm outline-none transition-colors rounded-md focus:ring-1 focus:ring-ring focus:border-ring">
+          </div>
+          <div>
+            <label class="block text-xs text-muted-foreground mb-1.5">密码</label>
+            <div class="relative">
+              <input type="password" id="reg-password" placeholder="设置密码" autocomplete="new-password" class="w-full bg-input border border-border text-card-foreground placeholder-muted-foreground px-3 py-2 pr-10 text-sm outline-none transition-colors rounded-md focus:ring-1 focus:ring-ring focus:border-ring">
+              <button type="button" id="toggle-reg-password" aria-label="切换密码可见性" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-muted-foreground mb-1.5">确认密码</label>
+            <div class="relative">
+              <input type="password" id="reg-confirm-password" placeholder="再次输入密码" autocomplete="new-password" class="w-full bg-input border border-border text-card-foreground placeholder-muted-foreground px-3 py-2 pr-10 text-sm outline-none transition-colors rounded-md focus:ring-1 focus:ring-ring focus:border-ring">
+              <button type="button" id="toggle-reg-confirm-password" aria-label="切换密码可见性" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" class="mt-0.5 shrink-0 rounded border-border bg-input">
+            <span class="text-xs text-muted-foreground leading-relaxed">我已阅读并同意《用户协议》和《隐私政策》</span>
+          </label>
+          <button type="submit" class="w-full bg-primary text-primary-foreground font-medium text-sm py-2.5 rounded-md hover:opacity-90 transition-opacity cursor-pointer">立即注册</button>
+        </form>
+        <div class="flex items-center gap-3 my-6">
+          <div class="flex-1 h-px bg-border"></div>
+          <span class="text-xs text-muted-foreground whitespace-nowrap">其他注册方式</span>
+          <div class="flex-1 h-px bg-border"></div>
+        </div>
+        <div class="flex items-center justify-center gap-3">
+          <button type="button" class="w-10 h-10 flex items-center justify-center border border-border bg-card hover:bg-secondary hover:border-accent transition-colors rounded-md" aria-label="QQ注册">
+            <svg class="w-4 h-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"></path><circle cx="9" cy="10" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="15" cy="10" r="1.5" fill="currentColor" stroke="none"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path></svg>
+          </button>
+          <button type="button" class="w-10 h-10 flex items-center justify-center border border-border bg-card hover:bg-secondary hover:border-accent transition-colors rounded-md" aria-label="微信注册">
+            <svg class="w-4 h-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"></path></svg>
+          </button>
+          <button type="button" class="w-10 h-10 flex items-center justify-center border border-border bg-card hover:bg-secondary hover:border-accent transition-colors rounded-md" aria-label="Google注册">
+            <span class="text-sm font-medium text-muted-foreground">G</span>
+          </button>
+          <button type="button" class="w-10 h-10 flex items-center justify-center border border-border bg-card hover:bg-secondary hover:border-accent transition-colors rounded-md" aria-label="GitHub注册">
+            <i data-lucide="github" class="w-4 h-4 text-muted-foreground"></i>
+          </button>
+        </div>
+        <p class="text-center mt-6 text-xs text-muted-foreground">
+          已有账号？<a href="#" data-dom-id="link-to-login" class="text-foreground hover:underline transition-colors">立即登录</a>
+        </p>
+      </div>
+    </main>
+    <script>
+      (function() {
+        document.getElementById('toggle-reg-password').addEventListener('click', function() {
+          var input = document.getElementById('reg-password');
+          if (input.type === 'password') {
+            input.type = 'text';
+            this.querySelector('[data-lucide]').setAttribute('data-lucide', 'eye-off');
+          } else {
+            input.type = 'password';
+            this.querySelector('[data-lucide]').setAttribute('data-lucide', 'eye');
+          }
+          lucide.createIcons();
+        });
+        document.getElementById('toggle-reg-confirm-password').addEventListener('click', function() {
+          var input = document.getElementById('reg-confirm-password');
+          if (input.type === 'password') {
+            input.type = 'text';
+            this.querySelector('[data-lucide]').setAttribute('data-lucide', 'eye-off');
+          } else {
+            input.type = 'password';
+            this.querySelector('[data-lucide]').setAttribute('data-lucide', 'eye');
+          }
+          lucide.createIcons();
+        });
+      })();
+    </script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

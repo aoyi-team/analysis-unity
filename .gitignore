@@ -73,6 +73,9 @@ sysinfo.txt
 *.private.*.meta
 Assets/Resources/SupabaseConfig.asset
 Assets/Resources/SupabaseConfig.asset.meta
+/Web/
+/opt/
+/--css-path
 
 # Local abandoned assets kept out of GitHub
 /_AbandonedLocal/

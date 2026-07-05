@@ -1,0 +1,36 @@
+{
+  "root": {
+    "nodeId": "gen-project-shell",
+    "kind": "project-shell",
+    "pageIds": ["page-login", "page-register"],
+    "output": "partials/project-shell.html",
+    "sharedRegions": ["full-page-background", "global-font-setup"],
+    "privateRegions": [],
+    "mutableSlots": ["<!-- SLOT: pageContent -->"],
+    "status": "planned",
+    "children": [
+      {
+        "nodeId": "gen-page-login",
+        "kind": "page-leaf",
+        "pageIds": ["page-login"],
+        "output": "pages/login.html",
+        "sharedRegions": [],
+        "privateRegions": ["login-form", "social-login-buttons", "register-link"],
+        "mutableSlots": [],
+        "status": "planned",
+        "children": []
+      },
+      {
+        "nodeId": "gen-page-register",
+        "kind": "page-leaf",
+        "pageIds": ["page-register"],
+        "output": "pages/register.html",
+        "sharedRegions": [],
+        "privateRegions": ["register-form", "social-register-buttons", "login-link"],
+        "mutableSlots": [],
+        "status": "planned",
+        "children": []
+      }
+    ]
+  }
+}
