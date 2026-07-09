@@ -67,6 +67,9 @@ sysinfo.txt
 /Assets/StreamingAssets/aa/
 
 # Local/private files
+debug.log
+*.env
+*.env.meta
 *.private
 *.private.meta
 *.private.*

@@ -18,6 +18,12 @@ namespace Edgegap
 {
     internal static class EdgegapBuildUtils
     {
+        private static readonly string[] DedicatedServerScenePaths =
+        {
+            "Assets/Scenes/LobbyPanel.unity",
+            "Assets/Scenes/dantiao_map.unity"
+        };
+
         public static bool IsLogLevelDebug =>
             EdgegapWindowMetadata.LOG_LEVEL == EdgegapWindowMetadata.LogLevel.Debug;
         public static bool IsArmCPU() =>
@@ -26,24 +32,59 @@ namespace Edgegap
 
         public static BuildReport BuildServer(string folderName)
         {
-            IEnumerable<string> scenes = EditorBuildSettings.scenes
-                .Where(s => s.enabled)
-                .Select(s => s.path);
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+                throw new Exception("Unity is still compiling or importing assets. Wait until the spinner finishes, then build the server again.");
+
+            string buildLocation = $"Builds/{folderName}/ServerBuild";
+            string absoluteBuildLocation = Path.GetFullPath(buildLocation);
+            string buildDirectory = Path.GetDirectoryName(absoluteBuildLocation);
+
+            string[] scenes = DedicatedServerScenePaths
+                .Where(File.Exists)
+                .ToArray();
+
+            if (scenes.Length == 0)
+                throw new Exception("No dedicated server scenes were found.");
+
+            Debug.Log($"[Edgegap] Building dedicated server scenes: {string.Join(", ", scenes)}");
+            Debug.Log($"[Edgegap] Dedicated server output: {absoluteBuildLocation}");
+
+            if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, BuildTarget.StandaloneLinux64))
+                throw new Exception("Linux Build Support is missing. Install Linux Dedicated Server Build Support from Unity Hub, then restart Unity.");
+
+            if (!Directory.Exists(buildDirectory))
+                Directory.CreateDirectory(buildDirectory);
+
+            EditorUserBuildSettings.standaloneBuildSubtarget = StandaloneBuildSubtarget.Server;
+
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.StandaloneLinux64)
+            {
+                bool switched = EditorUserBuildSettings.SwitchActiveBuildTarget(
+                    BuildTargetGroup.Standalone, BuildTarget.StandaloneLinux64);
+
+                if (!switched)
+                    throw new Exception("Failed to switch Unity active build target to StandaloneLinux64. Restart Unity after installing Linux Dedicated Server Build Support.");
+            }
+
+#if ADDRESSABLES_PRESENT
+            UnityEditor.AddressableAssets.Settings.AddressableAssetSettings.CleanPlayerContent();
+            UnityEditor.AddressableAssets.Settings.AddressableAssetSettings.BuildPlayerContent();
+#endif
+
             BuildPlayerOptions options = new BuildPlayerOptions
             {
-                scenes = scenes.ToArray(),
+                scenes = scenes,
                 target = BuildTarget.StandaloneLinux64,
-                // MIRROR CHANGE
-#if UNITY_2021_3_OR_NEWER
                 subtarget = (int)StandaloneBuildSubtarget.Server, // dedicated server with UNITY_SERVER define
-#else
-                options = BuildOptions.EnableHeadlessMode, // obsolete and missing UNITY_SERVER define
-#endif
-                // END MIRROR CHANGE
-                locationPathName = $"Builds/{folderName}/ServerBuild"
+                locationPathName = buildLocation
             };
 
-            return BuildPipeline.BuildPlayer(options);
+            BuildReport report = BuildPipeline.BuildPlayer(options);
+            if (report.summary.result == BuildResult.Succeeded && !File.Exists(absoluteBuildLocation))
+                throw new Exception($"Server build reported success, but output was not created at: {absoluteBuildLocation}");
+
+            return report;
         }
 
         public static async Task<string> DockerSetupAndInstallationCheck(string path)
@@ -58,7 +99,11 @@ namespace Edgegap
             await RunCommand_DockerVersion(msg => output = msg,
                 (msg) =>
                 {
-                    if (msg.ToLowerInvariant().Contains("error") || msg.ToLowerInvariant().Contains("invalid"))
+                    if (
+                        msg.ToLowerInvariant().Contains("error")
+                        || msg.ToLowerInvariant().Contains("invalid")
+                        || msg.ToLowerInvariant().Contains("failed to connect")
+                    )
                     {
                         error = msg;
                     }
@@ -253,9 +298,9 @@ namespace Edgegap
 #if UNITY_EDITOR_WIN
             await RunCommand("docker.exe", $"{buildCommand} -f \"{dockerfilePath}\" -t \"{registry}/{imageRepo}:{tag}\" \"{projectPath}\"", onStatusUpdate,
 #elif UNITY_EDITOR_OSX
-            await RunCommand("/bin/bash", $"-c \"docker {buildCommand} -f {dockerfilePath} -t {registry}/{imageRepo}:{tag} {projectPath}\"", onStatusUpdate,
+            await RunCommand("/bin/bash", $"-c \"docker {buildCommand} -f '{dockerfilePath}' -t '{registry}/{imageRepo}:{tag}' '{projectPath}'\"", onStatusUpdate,
 #elif UNITY_EDITOR_LINUX
-            await RunCommand("/bin/bash", $"-c \"docker {buildCommand} -f {dockerfilePath} -t {registry}/{imageRepo}:{tag} {projectPath}\"", onStatusUpdate,
+            await RunCommand("/bin/bash", $"-c \"docker {buildCommand} -f '{dockerfilePath}' -t '{registry}/{imageRepo}:{tag}' '{projectPath}'\"", onStatusUpdate,
 #endif
                 (msg) =>
                 {
@@ -308,6 +353,8 @@ namespace Edgegap
                 CreateNoWindow = true,
             };
 
+            ApplyProxyEnvironment(startInfo);
+
 #if !UNITY_EDITOR_WIN
             // on mac, commands like 'docker' aren't found because it's not in the application's PATH
             // even if it runs on mac's terminal.
@@ -356,6 +403,30 @@ namespace Edgegap
             pipeQueue(outputs, outputReciever);
 
 
+        }
+
+        static void ApplyProxyEnvironment(ProcessStartInfo startInfo)
+        {
+            CopyProxyEnvironment(startInfo, "HTTP_PROXY");
+            CopyProxyEnvironment(startInfo, "HTTPS_PROXY");
+            CopyProxyEnvironment(startInfo, "NO_PROXY");
+        }
+
+        static void CopyProxyEnvironment(ProcessStartInfo startInfo, string key)
+        {
+            string value =
+                Environment.GetEnvironmentVariable(key) ??
+                Environment.GetEnvironmentVariable(key.ToLowerInvariant()) ??
+                Environment.GetEnvironmentVariable(key, EnvironmentVariableTarget.User) ??
+                Environment.GetEnvironmentVariable(key.ToLowerInvariant(), EnvironmentVariableTarget.User) ??
+                Environment.GetEnvironmentVariable(key, EnvironmentVariableTarget.Machine) ??
+                Environment.GetEnvironmentVariable(key.ToLowerInvariant(), EnvironmentVariableTarget.Machine);
+
+            if (string.IsNullOrWhiteSpace(value))
+                return;
+
+            startInfo.EnvironmentVariables[key] = value;
+            startInfo.EnvironmentVariables[key.ToLowerInvariant()] = value;
         }
 
         static void Proc_OutputDataReceived(object sender, DataReceivedEventArgs e)
@@ -438,13 +509,47 @@ namespace Edgegap
             string repoPasswordToken,
             Action<string> onStatusUpdate)
         {
+            const int maxAttempts = 3;
             string error = null;
-            await RunCommand_DockerLogin(registryUrl, repoUsername, repoPasswordToken, onStatusUpdate, msg => error = msg); // MIRROR CHANGE
-            if (error.ToLowerInvariant().Contains("error") || error.ToLowerInvariant().Contains("invalid"))
+
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                throw new Exception(error);
+                error = null;
+                onStatusUpdate?.Invoke($"Docker registry login attempt {attempt}/{maxAttempts}...");
+                await RunCommand_DockerLogin(registryUrl, repoUsername, repoPasswordToken, onStatusUpdate, msg => error = msg); // MIRROR CHANGE
+
+                if (string.IsNullOrWhiteSpace(error))
+                    return true;
+
+                string normalizedError = error.ToLowerInvariant();
+                bool isError = normalizedError.Contains("error") ||
+                    normalizedError.Contains("invalid") ||
+                    normalizedError.Contains("eof") ||
+                    normalizedError.Contains("timeout") ||
+                    normalizedError.Contains("connection reset") ||
+                    normalizedError.Contains("connection refused");
+
+                if (!isError)
+                    return true;
+
+                if (!IsRetryableRegistryLoginError(normalizedError) || attempt == maxAttempts)
+                    throw new Exception(error);
+
+                onStatusUpdate?.Invoke($"Docker registry login failed with a transient network error, retrying in {attempt * 2}s...");
+                await Task.Delay(attempt * 2000);
             }
+
             return true;
+        }
+
+        static bool IsRetryableRegistryLoginError(string normalizedError)
+        {
+            return normalizedError.Contains("eof") ||
+                normalizedError.Contains("timeout") ||
+                normalizedError.Contains("connection reset") ||
+                normalizedError.Contains("connection refused") ||
+                normalizedError.Contains("tls handshake timeout") ||
+                normalizedError.Contains("temporary failure");
         }
 
     }
