@@ -88,6 +88,11 @@ namespace Mirror
             }
         }
 
+        public void SetReadyToBegin(bool readyState)
+        {
+            readyToBegin = readyState;
+        }
+
         #endregion
 
         #region SyncVar Hooks

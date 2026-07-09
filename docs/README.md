@@ -9,6 +9,7 @@
 - [structure-organization-plan.md](structure-organization-plan.md): 项目结构整理规划，包括目标结构、分阶段迁移方案和验收标准。
 - [build-size-resource-stripping-plan.md](build-size-resource-stripping-plan.md): 打包体积、Resources、Addressables、平台过滤、Managed Stripping 和 asmdef/Editor 隔离规划。
 - [resources-map.md](resources-map.md): `Assets/Resources` 当前资源登记、动态加载路径、迁移优先级和移动前检查清单。
+- [online-relay-comparison.md](online-relay-comparison.md): 1v1 公网 Relay / P2P 方案对比，比较 Unity Relay、Edgegap Relay 和 EOS P2P。
 
 ## 当前结论
 

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Aoyi.Mirror;
 using Mirror;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// 局域网快速匹配管理器（重构版）。
@@ -276,6 +277,12 @@ public class LanQuickMatchManager : MonoBehaviour
         PlayerBasicInfoMgr.Instance.UpdateTeamId(teamId);
         Debug.Log($"[LanQuickMatchManager] 本地玩家 teamId={teamId}");
 
+        if (nm.IsAoyiBattleScene(SceneManager.GetActiveScene().name))
+        {
+            Debug.Log("[LanQuickMatchManager] 已进入战斗场景，跳过等待对手 UI");
+            return;
+        }
+
         EnterWaitingState();
     }
 
@@ -384,6 +391,12 @@ public class LanQuickMatchManager : MonoBehaviour
             // 不再手动 ready：房间满员时 AoyiNetworkRoomManager.OnServerAddPlayer 会自动准备所有玩家
         }
 
+        if (nm.IsAoyiBattleScene(SceneManager.GetActiveScene().name))
+        {
+            Debug.Log("[LanQuickMatchManager] host 已进入战斗场景，跳过等待对手 UI");
+            return;
+        }
+
         EnterWaitingState();
     }
 
@@ -470,6 +483,31 @@ public class LanQuickMatchManager : MonoBehaviour
         OnMatchCanceled?.Invoke();
     }
 
+    /// <summary>
+    /// 匹配已经完成并进入战斗场景时的收尾逻辑。
+    /// 这里只关闭等待 UI 和房间广播，不能停止 Mirror 连接。
+    /// </summary>
+    public void CompleteMatchAndEnterBattle()
+    {
+        StopSearch();
+        _isWaiting = false;
+        _isCanceled = false;
+
+        if (_beaconSender != null)
+        {
+            _beaconSender.StopBroadcast();
+            _beaconSender = null;
+        }
+
+        if (!string.IsNullOrEmpty(_currentRoom.RoomId))
+        {
+            _currentRoom.Status = RoomStatus.Playing;
+        }
+
+        HideWaitingPanel();
+        Debug.Log("[LanQuickMatchManager] 匹配完成，已隐藏等待面板并保留 Mirror 连接");
+    }
+
     private void StopSearch()
     {
         _isMatching = false;
@@ -506,6 +544,15 @@ public class LanQuickMatchManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogWarning($"[LanQuickMatchManager] 打开等待面板异常：{ex.Message}");
+        }
+    }
+
+    private static void HideWaitingPanel()
+    {
+        LanWaitingPanel panel = FindObjectOfType<LanWaitingPanel>(true);
+        if (panel != null)
+        {
+            panel.Hide();
         }
     }
 

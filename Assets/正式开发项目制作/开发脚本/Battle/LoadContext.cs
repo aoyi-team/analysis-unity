@@ -16,6 +16,7 @@ public class LoadContext
 
     public Action<MsgBase> UdpMessageHandler { get; set; }
     public NetWorkMgr.MsgListener OnBattleReadyMsgHandler { get; set; }
+    public NetWorkMgr.MsgListener OnFramePackMsgHandler { get; set; }
     public Action OnGameReady { get; set; }
     public Action StartBattleReadyLoop { get; set; }
 

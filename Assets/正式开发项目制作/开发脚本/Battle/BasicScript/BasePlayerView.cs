@@ -8,12 +8,16 @@ public class BasePlayerView:MonoBehaviour
     private Animator m_Animator;
     private SpriteRenderer m_SpriterRender;
     protected _playerInfo m_playerInfo;
+    private GameObject _attackEffectPrefab;
+    private ActionCode _lastRenderedActionCode = ActionCode.None;
+    private const float AttackEffectLifeTime = 0.7f;
     // 渲染层的速度（用于SmoothDamp）
     private float last_RenderTime;
     private Vector3 _prePos;
     private Vector3 _currPos;
     // 强制同步，期间锁住位置，保证能到达目标点
     private bool _forceSync;
+    private bool _deathApplied;
 
 
     public virtual void InitView(_playerInfo info)
@@ -27,7 +31,11 @@ public class BasePlayerView:MonoBehaviour
     // 每渲染帧调用
     private void Update()
     {
-        if (m_playerInfo.IsDead) return;
+        if (m_playerInfo.IsDead)
+        {
+            ApplyDeathVisual();
+            return;
+        }
         // 计算在两帧逻辑之间的进度
         float timeSinceLastLogic = Time.time - last_RenderTime;
         float t = Mathf.Clamp01(timeSinceLastLogic / ServerConfig.frameTime);
@@ -59,7 +67,11 @@ public class BasePlayerView:MonoBehaviour
 
     public virtual void OnRenderFrameUpdate()
     {
-        if(m_playerInfo.IsDead) return;
+        if(m_playerInfo.IsDead)
+        {
+            ApplyDeathVisual();
+            return;
+        }
         _forceSync = true;
         transform.position = _currPos;
         _prePos = m_playerInfo._prevLogicPos.ToVector2();
@@ -88,6 +100,7 @@ public class BasePlayerView:MonoBehaviour
             {
                 case ActionCode.Attack:
                     m_Animator.Play("Shangmian_Attack");
+                    TryPlayAttackEffect(state);
                     break;
                 case ActionCode.Skill:
                     m_Animator.Play("Shangmian_Skill");
@@ -100,13 +113,56 @@ public class BasePlayerView:MonoBehaviour
             {
                 case ActionCode.Attack:
                     m_Animator.Play("Cemian_Attack");
+                    TryPlayAttackEffect(state);
                     break;
                 case ActionCode.Skill:
                     m_Animator.Play("Cemian_Skill");
                     break;
             }
         }
+        _lastRenderedActionCode = acode;
     }
+
+    private void TryPlayAttackEffect(AnimState state)
+    {
+        if (_lastRenderedActionCode == ActionCode.Attack || m_playerInfo == null) return;
+
+        GameObject prefab = LoadAttackEffectPrefab();
+        if (prefab == null) return;
+
+        Vector2 target = m_playerInfo.LastAttackTarget;
+        Vector3 effectPosition = new Vector3(target.x, target.y, transform.position.z);
+        GameObject effect = Instantiate(prefab, effectPosition, Quaternion.identity);
+        SpriteRenderer effectRenderer = effect.GetComponent<SpriteRenderer>();
+        if (effectRenderer != null)
+        {
+            effectRenderer.flipX = m_playerInfo.FlipX < 0;
+            effectRenderer.sortingOrder = m_SpriterRender != null ? m_SpriterRender.sortingOrder - 1 : effectRenderer.sortingOrder;
+        }
+
+        Destroy(effect, AttackEffectLifeTime);
+    }
+
+    private GameObject LoadAttackEffectPrefab()
+    {
+        if (_attackEffectPrefab != null) return _attackEffectPrefab;
+        if (m_playerInfo == null) return null;
+
+        _attackEffectPrefab = ResMgr.LoadResource<GameObject>($"HeroPrefabs/{m_playerInfo.HeroId}/Hero_{m_playerInfo.HeroId}_01_Attack");
+        if (_attackEffectPrefab == null)
+        {
+            Debug.LogWarning($"[BasePlayerView] 未找到攻击特效 HeroPrefabs/{m_playerInfo.HeroId}/Hero_{m_playerInfo.HeroId}_01_Attack");
+        }
+        return _attackEffectPrefab;
+    }
+    private void ApplyDeathVisual()
+    {
+        if (_deathApplied) return;
+        _deathApplied = true;
+        if (m_SpriterRender != null) m_SpriterRender.enabled = false;
+        if (m_Animator != null) m_Animator.enabled = false;
+    }
+
     public virtual void UpdatePlayerUI()
     {
 

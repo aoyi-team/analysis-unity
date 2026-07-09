@@ -55,7 +55,7 @@ namespace Aoyi.Mirror
                 return;
             }
 
-            readyToBegin = true;
+            SetReadyToBegin(true);
             if (NetworkManager.singleton is NetworkRoomManager room)
             {
                 room.ReadyStatusChanged();

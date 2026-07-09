@@ -36,6 +36,7 @@ namespace Panels
         [Header("ģʽͼ�����")]
         private Image modeIcon; // ģʽͼ��
         private GameModes GameMode;
+        private HeroSelectionMatchController matchController;
         //private string defaultModeIconPath = "ModeIcons/Default"; // Ĭ��ģʽͼ��·��������ʵ����Դ·��������
 
         [Header("Ӣ�۰�ť���")]
@@ -86,6 +87,7 @@ namespace Panels
             InitLastSelectedHeroSkin();
             // ������ѡ��ҳ�洫ʱ���嶥��ǰƥ��/�ȴ�״̬
             ResetLanQuickMatchState();
+            InitMatchController();
             InitBtnClick();
             InitMsgListener();
         }
@@ -192,6 +194,18 @@ namespace Panels
         {
             NetWorkMgr.AddMsgListener("MsgMatchSuccess", OnMsgMatchSuccess);
 
+        }
+
+        private void InitMatchController()
+        {
+            matchController = new HeroSelectionMatchController(
+                () => PlayerBasicInfoMgr.Instance.CurrentNetworkMode,
+                () => PlayerBasicInfoMgr.Instance.GetID(),
+                NetWorkMgr.Send,
+                StartLanQuickMatch,
+                () => LanQuickMatchManager.Instance?.CancelMatch(),
+                StartOnlineMatch,
+                () => OnlineMatchManager.Instance?.CancelMatch());
         }
         #endregion
 
@@ -436,72 +450,26 @@ namespace Panels
         private void OnCloseBtnClick()
         {
             Debug.Log("[ChooseHeroPanel] 点击关闭按钮，退出当前匹配状态");
-            LanQuickMatchManager.Instance?.CancelMatch();
+            matchController?.CancelMatch(GameMode);
             UIManager._Instance.ClosePanel<ChooseHeroPanel>();
         }
 
         private void onStartMatchClick()
         {
             Debug.Log($"[ChooseHeroPanel] onStartMatchClick 被点击, GameMode={GameMode}, heroId={_curHeroId}, skinId={_curSkinId}");
-            NetworkMode netMode = PlayerBasicInfoMgr.Instance.CurrentNetworkMode;
-            int heroId = _curHeroId;
-            int skinId = _curSkinId;
-
-            switch (netMode)
+            HeroMatchStartResult result = matchController.StartMatch(GameMode, _curHeroId, _curSkinId);
+            if (result == HeroMatchStartResult.UnsupportedNetworkMode)
             {
-                case NetworkMode.LocalServer:
-                    // ԭ������������
-                    MsgMatchRequest msg = new MsgMatchRequest();
-                    msg.GameModes = GameMode;
-
-                    string userIdStr = PlayerBasicInfoMgr.Instance.GetID();
-                    int userId = 0;
-                    if (!int.TryParse(userIdStr, out userId))
-                    {
-                        Debug.LogWarning($"[ChooseHeroPanel] 本地服务器模式下玩家ID无效：'{userIdStr}'，请检查登录是否成功");
-                    }
-
-                    msg.playerPack = new List<PlayerChooseCache>
-                    {
-                        new PlayerChooseCache()
-                        {
-                            userId = userId,
-                            selectedHeroId = heroId
-                        }
-                    };
-                    NetWorkMgr.Send(msg);
-                    break;
-
-                case NetworkMode.LanClient:
-                case NetworkMode.LanHost:
-                case NetworkMode.SupabaseOnline:
-                    Debug.Log($"[ChooseHeroPanel] 开始局域网匹配, netMode={netMode}, mode={GameMode}");
-                    StartLanQuickMatch(heroId, skinId);
-                    break;
-
-                default:
-                    Debug.LogWarning($"[ChooseHeroPanel] 未知网络模式: {netMode}，无法开始匹配");
-                    break;
+                Debug.LogWarning($"[ChooseHeroPanel] 未知网络模式: {PlayerBasicInfoMgr.Instance.CurrentNetworkMode}，无法开始匹配");
             }
         }
 
         private void onCancelBtnClick()
         {
-            NetworkMode netMode = PlayerBasicInfoMgr.Instance.CurrentNetworkMode;
-            if (netMode == NetworkMode.LocalServer)
-            {
-                MsgExitRequest msg = new MsgExitRequest();
-                msg.mode = GameMode;
-                msg.PlayerList = new List<int>() { int.Parse(PlayerBasicInfoMgr.Instance.GetID()) };
-                NetWorkMgr.Send(msg);
-            }
-            else
-            {
-                LanQuickMatchManager.Instance?.CancelMatch();
-            }
+            matchController.CancelMatch(GameMode);
         }
 
-        private void StartLanQuickMatch(int heroId, int skinId)
+        private void StartLanQuickMatch(GameModes mode, int heroId, int skinId)
         {
             LanQuickMatchManager lanMgr = FindObjectOfType<LanQuickMatchManager>();
             if (lanMgr == null)
@@ -510,7 +478,19 @@ namespace Panels
                 lanMgr = go.AddComponent<LanQuickMatchManager>();
                 DontDestroyOnLoad(go);
             }
-            lanMgr.StartQuickMatch(GameMode, heroId, skinId);
+            lanMgr.StartQuickMatch(mode, heroId, skinId);
+        }
+
+        private void StartOnlineMatch(GameModes mode, int heroId, int skinId)
+        {
+            OnlineMatchManager onlineMgr = FindObjectOfType<OnlineMatchManager>();
+            if (onlineMgr == null)
+            {
+                GameObject go = new GameObject("OnlineMatchManager");
+                onlineMgr = go.AddComponent<OnlineMatchManager>();
+                DontDestroyOnLoad(go);
+            }
+            onlineMgr.StartQuickMatch(mode, heroId, skinId);
         }
 
         private void ResetLanQuickMatchState()
@@ -550,5 +530,345 @@ namespace Panels
 
         }
         #endregion
+    }
+    public enum HeroMatchStartResult
+    {
+        LocalServer,
+        QuickMatch,
+        OnlineMatch,
+        UnsupportedNetworkMode
+    }
+
+    public sealed class HeroSelectionMatchController
+    {
+        private readonly System.Func<NetworkMode> getNetworkMode;
+        private readonly System.Func<string> getUserId;
+        private readonly System.Action<MsgBase> sendMessage;
+        private readonly System.Action<GameModes, int, int> startQuickMatch;
+        private readonly System.Action cancelQuickMatch;
+        private readonly System.Action<GameModes, int, int> startOnlineMatch;
+        private readonly System.Action cancelOnlineMatch;
+
+        public HeroSelectionMatchController(
+            System.Func<NetworkMode> getNetworkMode,
+            System.Func<string> getUserId,
+            System.Action<MsgBase> sendMessage,
+            System.Action<GameModes, int, int> startQuickMatch,
+            System.Action cancelQuickMatch,
+            System.Action<GameModes, int, int> startOnlineMatch,
+            System.Action cancelOnlineMatch)
+        {
+            this.getNetworkMode = getNetworkMode ?? throw new System.ArgumentNullException(nameof(getNetworkMode));
+            this.getUserId = getUserId ?? throw new System.ArgumentNullException(nameof(getUserId));
+            this.sendMessage = sendMessage ?? throw new System.ArgumentNullException(nameof(sendMessage));
+            this.startQuickMatch = startQuickMatch ?? throw new System.ArgumentNullException(nameof(startQuickMatch));
+            this.cancelQuickMatch = cancelQuickMatch ?? throw new System.ArgumentNullException(nameof(cancelQuickMatch));
+            this.startOnlineMatch = startOnlineMatch ?? throw new System.ArgumentNullException(nameof(startOnlineMatch));
+            this.cancelOnlineMatch = cancelOnlineMatch ?? throw new System.ArgumentNullException(nameof(cancelOnlineMatch));
+        }
+
+        public HeroMatchStartResult StartMatch(GameModes mode, int heroId, int skinId)
+        {
+            NetworkMode networkMode = getNetworkMode();
+            if (networkMode == NetworkMode.LocalServer)
+            {
+                sendMessage(BuildLocalMatchRequest(mode, heroId, getUserId()));
+                return HeroMatchStartResult.LocalServer;
+            }
+
+            if (UsesQuickMatch(networkMode))
+            {
+                startQuickMatch(mode, heroId, skinId);
+                return HeroMatchStartResult.QuickMatch;
+            }
+
+            if (UsesOnlineMatch(networkMode))
+            {
+                startOnlineMatch(mode, heroId, skinId);
+                return HeroMatchStartResult.OnlineMatch;
+            }
+
+            return HeroMatchStartResult.UnsupportedNetworkMode;
+        }
+
+        public void CancelMatch(GameModes mode)
+        {
+            NetworkMode networkMode = getNetworkMode();
+            if (networkMode == NetworkMode.LocalServer)
+            {
+                sendMessage(BuildExitRequest(mode, getUserId()));
+                return;
+            }
+
+            if (UsesOnlineMatch(networkMode))
+            {
+                cancelOnlineMatch();
+                return;
+            }
+
+            cancelQuickMatch();
+        }
+
+        public static bool UsesQuickMatch(NetworkMode networkMode)
+        {
+            return networkMode == NetworkMode.LanClient
+                || networkMode == NetworkMode.LanHost;
+        }
+
+        public static bool UsesOnlineMatch(NetworkMode networkMode)
+        {
+            return networkMode == NetworkMode.SupabaseOnline;
+        }
+
+        public static MsgMatchRequest BuildLocalMatchRequest(GameModes mode, int heroId, string userIdText)
+        {
+            return new MsgMatchRequest
+            {
+                GameModes = mode,
+                playerPack = new List<PlayerChooseCache>
+                {
+                    new PlayerChooseCache
+                    {
+                        userId = ParseUserIdOrZero(userIdText),
+                        selectedHeroId = heroId
+                    }
+                }
+            };
+        }
+
+        public static MsgExitRequest BuildExitRequest(GameModes mode, string userIdText)
+        {
+            return new MsgExitRequest
+            {
+                mode = mode,
+                PlayerList = new List<int> { ParseUserIdOrZero(userIdText) }
+            };
+        }
+
+        public static int ParseUserIdOrZero(string userIdText)
+        {
+            return int.TryParse(userIdText, out int userId) ? userId : 0;
+        }
+    }
+
+    public interface IOnlineMatchConnector
+    {
+        bool IsMatching { get; }
+        bool IsWaiting { get; }
+        void StartQuickMatch(GameModes mode, int heroId, int skinId);
+        void CancelMatch();
+    }
+
+    public sealed class OnlineMatchManager : MonoBehaviour, IOnlineMatchConnector
+    {
+        public static OnlineMatchManager Instance { get; private set; }
+
+        private bool isMatching;
+        private bool isWaiting;
+        private string currentTicketId;
+        private string currentAccessToken;
+        private bool cancelRequested;
+        private bool isPolling;
+        private int pollGeneration;
+        private const float PollIntervalSeconds = 2f;
+
+        public bool IsMatching => isMatching;
+        public bool IsWaiting => isWaiting;
+
+        private void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+            Debug.Log("[OnlineMatchManager] Awake");
+        }
+
+        public async void StartQuickMatch(GameModes mode, int heroId, int skinId)
+        {
+            if (isMatching || isWaiting)
+            {
+                Debug.LogWarning($"[OnlineMatchManager] 当前正在在线匹配或等待中，isMatching={isMatching}, isWaiting={isWaiting}");
+                return;
+            }
+
+            currentAccessToken = SupabaseBackendProvider.GetSavedAccessToken();
+            if (string.IsNullOrWhiteSpace(currentAccessToken))
+            {
+                Debug.LogWarning("[OnlineMatchManager] 缺少 Supabase access token，请先登录后再进行在线匹配");
+                return;
+            }
+
+            PlayerBasicInfoMgr.Instance.CurrentNetworkMode = NetworkMode.SupabaseOnline;
+            PlayerBasicInfoMgr.Instance.SetCurrentGamemode(mode);
+            PlayerBasicInfoMgr.Instance.UpdateHeroCache(heroId, skinId);
+
+            isMatching = true;
+            isWaiting = true;
+            cancelRequested = false;
+            isPolling = false;
+            pollGeneration++;
+            currentTicketId = null;
+            Debug.Log($"[OnlineMatchManager] 在线匹配入口已启动，mode={mode}, heroId={heroId}, skinId={skinId}");
+
+            OnlineMatchApiResult<OnlineMatchResponse> result =
+                await OnlineMatchApiClient.StartMatchAsync(currentAccessToken, mode, heroId, skinId);
+
+            if (!isMatching || cancelRequested)
+            {
+                return;
+            }
+
+            if (!result.Success)
+            {
+                FailMatch($"启动在线匹配失败：{result.ErrorMessage}");
+                return;
+            }
+
+            HandleMatchResponse(result.Data);
+        }
+
+        public async void CancelMatch()
+        {
+            if (!isMatching && !isWaiting)
+            {
+                return;
+            }
+
+            cancelRequested = true;
+            string ticketId = currentTicketId;
+            string accessToken = currentAccessToken;
+            isMatching = false;
+            isWaiting = false;
+            isPolling = false;
+            pollGeneration++;
+
+            if (!string.IsNullOrWhiteSpace(ticketId) && !string.IsNullOrWhiteSpace(accessToken))
+            {
+                OnlineMatchApiResult<OnlineMatchCancelResponse> result =
+                    await OnlineMatchApiClient.CancelMatchAsync(accessToken, ticketId);
+                if (!result.Success)
+                {
+                    Debug.LogWarning($"[OnlineMatchManager] 取消在线匹配请求失败：{result.ErrorMessage}");
+                }
+            }
+
+            currentTicketId = null;
+            currentAccessToken = null;
+            Debug.Log("[OnlineMatchManager] 已取消在线匹配");
+        }
+
+        private async void PollMatchStatus()
+        {
+            int generation = pollGeneration;
+            while (IsPollingActive(generation))
+            {
+                await System.Threading.Tasks.Task.Delay(System.TimeSpan.FromSeconds(PollIntervalSeconds));
+                if (!IsPollingActive(generation))
+                {
+                    isPolling = false;
+                    return;
+                }
+
+                OnlineMatchApiResult<OnlineMatchResponse> result =
+                    await OnlineMatchApiClient.GetStatusAsync(currentAccessToken, currentTicketId);
+                if (!IsPollingActive(generation))
+                {
+                    isPolling = false;
+                    return;
+                }
+
+                if (!result.Success)
+                {
+                    FailMatch($"轮询在线匹配状态失败：{result.ErrorMessage}");
+                    return;
+                }
+
+                HandleMatchResponse(result.Data);
+            }
+
+            isPolling = false;
+        }
+
+        private bool IsPollingActive(int generation)
+        {
+            return generation == pollGeneration
+                && isMatching
+                && isWaiting
+                && !cancelRequested
+                && !string.IsNullOrWhiteSpace(currentTicketId);
+        }
+
+        private void HandleMatchResponse(OnlineMatchResponse response)
+        {
+            if (response == null)
+            {
+                FailMatch("在线匹配响应为空");
+                return;
+            }
+
+            currentTicketId = response.TicketId;
+            if (response.Status == "waiting")
+            {
+                Debug.Log($"[OnlineMatchManager] 已进入在线匹配队列，ticketId={currentTicketId}");
+                if (!isPolling)
+                {
+                    isPolling = true;
+                    PollMatchStatus();
+                }
+                return;
+            }
+
+            if (response.Status == "matched")
+            {
+                isMatching = false;
+                isWaiting = false;
+                isPolling = false;
+                pollGeneration++;
+                currentTicketId = null;
+                PlayerBasicInfoMgr.Instance.UpdateRoomID(response.RoomId);
+                Debug.Log($"[OnlineMatchManager] 在线匹配成功，roomId={response.RoomId}, role={response.Role}, connectionMode={SupabaseConfig.Instance.OnlineConnectionMode}, provider={response.Room?["relay_provider"]}");
+                _ = StartMatchedOnlineRoomAsync(response);
+                return;
+            }
+
+            FailMatch($"在线匹配结束，状态={response.Status}");
+        }
+
+        private void FailMatch(string message)
+        {
+            isMatching = false;
+            isWaiting = false;
+            isPolling = false;
+            pollGeneration++;
+            currentTicketId = null;
+            Debug.LogWarning($"[OnlineMatchManager] {message}");
+        }
+
+        private async System.Threading.Tasks.Task StartMatchedOnlineRoomAsync(OnlineMatchResponse response)
+        {
+            bool started = await OnlineConnectionLauncher.StartMatchedRoomAsync(
+                response,
+                PlayerBasicInfoMgr.Instance.GameMode,
+                PlayerBasicInfoMgr.Instance.HeroCache.heroId,
+                PlayerBasicInfoMgr.Instance.HeroCache.skinId);
+
+            if (!started)
+            {
+                Debug.LogWarning("[OnlineMatchManager] 在线匹配已成功，但在线连接启动失败");
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this)
+            {
+                Instance = null;
+            }
+        }
     }
 }

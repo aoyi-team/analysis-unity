@@ -29,6 +29,9 @@ namespace Aoyi.Mirror
         [System.NonSerialized]
         private bool _battleStarted = false;
 
+        [System.NonSerialized]
+        private bool _battleSceneChangeStarted = false;
+
         public static bool HasEnoughPlayersToStart(int currentPlayers, int requiredPlayers)
         {
             return currentPlayers >= Mathf.Max(1, requiredPlayers);
@@ -95,13 +98,28 @@ namespace Aoyi.Mirror
         public override void OnRoomStartHost()
         {
             _battleStarted = false;
+            _battleSceneChangeStarted = false;
             minPlayers = Mathf.Max(1, maxRoomPlayers);
             Debug.Log($"[AoyiNetworkRoomManager] OnRoomStartHost, roomSlots.Count={roomSlots.Count}, maxRoomPlayers={maxRoomPlayers}");
         }
 
+        public override void OnStartServer()
+        {
+            base.OnStartServer();
+            NetworkServer.ReplaceHandler<AoyiRawMessage>(MirrorNetBridge.ServerHandleRawMessage);
+            Debug.Log("[AoyiNetworkRoomManager] 服务器已启动，注册旧消息桥接");
+        }
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+            NetworkClient.ReplaceHandler<AoyiRawMessage>(MirrorNetBridge.ClientHandleRawMessage);
+            Debug.Log("[AoyiNetworkRoomManager] 客户端已启动，注册旧消息桥接");
+        }
+
         public override void OnServerAddPlayer(NetworkConnectionToClient conn)
         {
-            if (IsBattleScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name))
+            if (IsAoyiBattleScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name))
             {
                 Debug.Log($"[AoyiNetworkRoomManager] 战斗场景，跳过 Mirror 创建 GamePlayer (connId={conn.connectionId})");
                 return;
@@ -122,15 +140,16 @@ namespace Aoyi.Mirror
                 }
             }
 
-            if (roomSlots.Count >= maxRoomPlayers)
-            {
-                StartCoroutine(AutoReadyAllPlayers());
-            }
+            StartCoroutine(AutoReadyAllPlayers());
         }
 
         private System.Collections.IEnumerator AutoReadyAllPlayers()
         {
-            yield return new WaitForSeconds(0.5f);
+            float timeoutAt = Time.time + 3f;
+            while (!CanStartBattle() && Time.time < timeoutAt)
+            {
+                yield return null;
+            }
 
             if (!CanStartBattle())
             {
@@ -143,6 +162,7 @@ namespace Aoyi.Mirror
             {
                 if (slot is AoyiRoomPlayer aoyiPlayer)
                 {
+                    if (aoyiPlayer.readyToBegin) continue;
                     aoyiPlayer.ServerSetReady();
                 }
             }
@@ -176,6 +196,13 @@ namespace Aoyi.Mirror
                 return;
             }
 
+            if (_battleSceneChangeStarted)
+            {
+                Debug.Log("[AoyiNetworkRoomManager] 战斗场景切换已启动，跳过重复请求");
+                return;
+            }
+
+            _battleSceneChangeStarted = true;
             string scene = string.IsNullOrEmpty(pendingBattleScene) ? GameplayScene : pendingBattleScene;
             Debug.Log($"[AoyiNetworkRoomManager] OnRoomServerPlayersReady, 切换到战斗场景: {scene}");
             ServerChangeScene(scene);
@@ -183,7 +210,7 @@ namespace Aoyi.Mirror
 
         public override bool OnRoomServerSceneLoadedForPlayer(NetworkConnectionToClient conn, GameObject roomPlayer, GameObject gamePlayer)
         {
-            if (IsBattleScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name))
+            if (IsAoyiBattleScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name))
             {
                 if (gamePlayer != null) Destroy(gamePlayer);
                 Debug.Log($"[AoyiNetworkRoomManager] 战斗场景，保留 RoomPlayer 不替换为 GamePlayer (connId={conn.connectionId})");
@@ -197,7 +224,7 @@ namespace Aoyi.Mirror
             base.OnRoomServerSceneChanged(sceneName);
             Debug.Log($"[AoyiNetworkRoomManager] OnRoomServerSceneChanged: {sceneName}, roomSlots.Count={roomSlots.Count}, _battleStarted={_battleStarted}");
 
-            if (IsBattleScene(sceneName))
+            if (IsAoyiBattleScene(sceneName))
             {
                 if (_battleStarted)
                 {
@@ -208,10 +235,12 @@ namespace Aoyi.Mirror
 
                 var allPlayers = BuildAllPlayersFromRoomSlots();
                 Debug.Log($"[AoyiNetworkRoomManager] 战斗场景加载完成，玩家数={allPlayers.Count}, 玩家列表: {string.Join(", ", System.Linq.Enumerable.Select(allPlayers, p => $"{p.userId}(hero={p.HeroId}, team={p.teamId})"))}");
+                MirrorNetBridge.ResetBattleFrameState(PlayerBasicInfoMgr.Instance?.RoomId, allPlayers.Count);
 
                 var mgr = PlayerBasicInfoMgr.Instance;
                 if (mgr != null)
                 {
+                    ApplyLocalBattleIdentity(mgr);
                     mgr.SetBattleAllPlayers(allPlayers);
                 }
 
@@ -230,12 +259,13 @@ namespace Aoyi.Mirror
                 return;
             }
 
-            if (IsBattleScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name))
+            if (IsAoyiBattleScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name))
             {
                 var allPlayers = BuildAllPlayersFromRoomSlots();
                 var mgr = PlayerBasicInfoMgr.Instance;
                 if (mgr != null)
                 {
+                    ApplyLocalBattleIdentity(mgr);
                     mgr.SetBattleAllPlayers(allPlayers);
                 }
 
@@ -246,6 +276,7 @@ namespace Aoyi.Mirror
         private void StartBattleLoad(List<PlayerData> allPlayers)
         {
             Debug.Log($"[AoyiNetworkRoomManager] StartBattleLoad 开始，玩家数={allPlayers?.Count ?? 0}");
+            LanQuickMatchManager.Instance?.CompleteMatchAndEnterBattle();
 
             var loadPanel = FindObjectOfType<GameLoadPanel>();
             if (loadPanel == null)
@@ -265,6 +296,22 @@ namespace Aoyi.Mirror
             catch (System.Exception ex)
             {
                 Debug.LogError($"[AoyiNetworkRoomManager] LoadGame 抛异常: {ex}");
+            }
+        }
+
+        private void ApplyLocalBattleIdentity(PlayerBasicInfoMgr mgr)
+        {
+            int localIndex = GetLocalPlayerIndex();
+            int localTeamId = GetLocalPlayerTeamId();
+
+            if (localIndex >= 0)
+            {
+                mgr.SetBattleId(localIndex.ToString());
+            }
+
+            if (localTeamId > 0)
+            {
+                mgr.UpdateTeamId(localTeamId);
             }
         }
 
@@ -326,7 +373,7 @@ namespace Aoyi.Mirror
             return 0;
         }
 
-        private bool IsBattleScene(string sceneName)
+        public bool IsAoyiBattleScene(string sceneName)
         {
             foreach (var s in aoyiBattleScenes)
             {

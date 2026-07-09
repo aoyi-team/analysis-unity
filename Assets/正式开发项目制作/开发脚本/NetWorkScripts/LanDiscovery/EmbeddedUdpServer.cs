@@ -135,6 +135,7 @@ public class EmbeddedUdpServer
                 break;
             case "MsgBattleOver":
                 LanHostManager.Log($"[EmbeddedUdpServer] 收到战斗结束 userId={((MsgBattleOver)msg).userId}");
+                Broadcast(msg);
                 break;
             case "MsgPlayerExit":
                 LanHostManager.Log($"[EmbeddedUdpServer] 收到玩家退出 userId={((MsgPlayerExit)msg).userId}");

@@ -24,6 +24,11 @@ public class SupabaseBackendProvider : IBackendProvider
         TryLoadSession();
     }
 
+    public static string GetSavedAccessToken()
+    {
+        return PlayerPrefs.GetString(PREFS_ACCESS_TOKEN, "");
+    }
+
     #region 会话管理
 
     private void TryLoadSession()

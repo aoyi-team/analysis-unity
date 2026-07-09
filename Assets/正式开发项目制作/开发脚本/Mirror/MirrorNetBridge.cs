@@ -27,6 +27,17 @@ namespace Aoyi.Mirror
         /// </summary>
         public static readonly List<MirrorClientState> ServerPlayers = new List<MirrorClientState>();
 
+        private const int ServerFrameHistoryLimit = 120;
+        private static readonly Queue<MsgPlayerOp> ServerPendingOps = new Queue<MsgPlayerOp>();
+        private static readonly List<FrameData> ServerFrameHistory = new List<FrameData>();
+        private static readonly object ServerBattleLock = new object();
+        private static int ServerBattleFrameId = 0;
+        private static string ServerBattleRoomId = "";
+        private static int ServerBattleRandSeed = 0;
+        private static int ServerBattleExpectedPlayers = 1;
+        private static bool ServerBattleReadyBroadcasted = false;
+        private static readonly HashSet<int> ServerBattleReadyPlayers = new HashSet<int>();
+
         // RoomInfo 定义在 Assembly-CSharp 中。新架构由 AoyiNetworkRoomManager 管理房间，不再使用此字段。
         // public static RoomInfo ServerRoomInfo = new RoomInfo();
 
@@ -39,6 +50,8 @@ namespace Aoyi.Mirror
         /// 是否处于主机模式。
         /// </summary>
         public static bool IsHost => NetworkServer.active && NetworkClient.active;
+
+        public static bool CanClientSend => NetworkClient.active && NetworkClient.connection != null;
 
         /// <summary>
         /// 编码 MsgBase 为旧协议二进制数据（2字节长度 + 协议名 + JSON 体）。
@@ -100,7 +113,10 @@ namespace Aoyi.Mirror
             }
 
             NetworkClient.Send(new AoyiRawMessage { data = EncodeMessage(msg) });
-            Debug.Log($"[MirrorNetBridge] ClientSend 成功: msg={msg.GetType().Name}");
+            if (msg.protoName != "MsgPlayerOp")
+            {
+                Debug.Log($"[MirrorNetBridge] ClientSend 成功: msg={msg.GetType().Name}");
+            }
         }
 
         /// <summary>
@@ -164,6 +180,26 @@ namespace Aoyi.Mirror
         {
             if (!NetworkServer.active) return;
             NetworkServer.SendToReady(new AoyiRawMessage { data = EncodeMessage(msg) });
+        }
+
+        public static void ResetBattleFrameState(string roomId)
+        {
+            ResetBattleFrameState(roomId, 1);
+        }
+
+        public static void ResetBattleFrameState(string roomId, int expectedPlayers)
+        {
+            lock (ServerBattleLock)
+            {
+                ServerBattleRoomId = roomId ?? "";
+                ServerBattleFrameId = 0;
+                ServerBattleRandSeed = UnityEngine.Random.Range(10000, 99999);
+                ServerBattleExpectedPlayers = Mathf.Max(1, expectedPlayers);
+                ServerBattleReadyBroadcasted = false;
+                ServerBattleReadyPlayers.Clear();
+                ServerPendingOps.Clear();
+                ServerFrameHistory.Clear();
+            }
         }
 
         /// <summary>
@@ -290,10 +326,112 @@ namespace Aoyi.Mirror
                 return;
             }
 
-            HandleServerRoomLogic(conn, protoName, msg);
+            MsgBase battleResponse = HandleServerBattleMessage(msg);
+            if (battleResponse != null)
+            {
+                ServerBroadcast(battleResponse);
+            }
 
-            // 同时把消息分发给所有旧监听器（服务器端也可能需要监听）
+            // Battle messages are handled by the battle pipeline only.
+            // They must not fall through into room/login state creation.
+            if (IsServerAggregatedBattleMessage(protoName))
+            {
+                return;
+            }
+
+            HandleServerRoomLogic(conn, protoName, msg);
             NetWorkMgr.DispatchMirrorMessage(protoName, msg);
+        }
+
+        public static MsgBase HandleServerBattleMessage(MsgBase msg)
+        {
+            switch (msg.protoName)
+            {
+                case "MsgBattleReady":
+                    return BuildBattleReady((MsgBattleReady)msg);
+                case "MsgPlayerOp":
+                    return BuildFramePack((MsgPlayerOp)msg);
+                case "MsgBattleOver":
+                case "MsgPlayerExit":
+                    return msg;
+                default:
+                    return null;
+            }
+        }
+
+        private static bool IsServerAggregatedBattleMessage(string protoName)
+        {
+            return protoName == "MsgBattleReady"
+                || protoName == "MsgPlayerOp"
+                || protoName == "MsgBattleOver"
+                || protoName == "MsgPlayerExit";
+        }
+
+        private static MsgBattleReady BuildBattleReady(MsgBattleReady msg)
+        {
+            lock (ServerBattleLock)
+            {
+                if (!string.IsNullOrEmpty(msg.roomId))
+                {
+                    ServerBattleRoomId = msg.roomId;
+                }
+
+                ServerBattleReadyPlayers.Add(msg.userId);
+                if (ServerBattleReadyBroadcasted)
+                {
+                    return null;
+                }
+
+                if (ServerBattleReadyPlayers.Count < ServerBattleExpectedPlayers)
+                {
+                    Debug.Log($"[MirrorNetBridge] 等待战斗准备完成: ready={ServerBattleReadyPlayers.Count}/{ServerBattleExpectedPlayers}");
+                    return null;
+                }
+
+                ServerBattleReadyBroadcasted = true;
+                Debug.Log($"[MirrorNetBridge] 战斗准备完成，开始同步帧: ready={ServerBattleReadyPlayers.Count}/{ServerBattleExpectedPlayers}");
+            }
+
+            return msg;
+        }
+
+        private static MsgFramePack BuildFramePack(MsgPlayerOp op)
+        {
+            lock (ServerBattleLock)
+            {
+                if (!string.IsNullOrEmpty(op.roomId))
+                {
+                    ServerBattleRoomId = op.roomId;
+                }
+
+                ServerPendingOps.Enqueue(op);
+
+                ServerBattleFrameId++;
+                List<MsgPlayerOp> ops = new List<MsgPlayerOp>();
+                while (ServerPendingOps.Count > 0)
+                {
+                    ops.Add(ServerPendingOps.Dequeue());
+                }
+
+                FrameData frameData = new FrameData
+                {
+                    frameId = ServerBattleFrameId,
+                    randSeed = ServerBattleRandSeed + ServerBattleFrameId,
+                    allPlayerOps = ops
+                };
+                ServerFrameHistory.Add(frameData);
+                if (ServerFrameHistory.Count > ServerFrameHistoryLimit)
+                {
+                    ServerFrameHistory.RemoveAt(0);
+                }
+
+                return new MsgFramePack
+                {
+                    roomId = ServerBattleRoomId,
+                    frameId = ServerBattleFrameId,
+                    frames = new List<FrameData>(ServerFrameHistory)
+                };
+            }
         }
 
         /// <summary>

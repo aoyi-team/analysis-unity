@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class InputManager:MonoBehaviour
 {
+    private const float TargetPositionScale = 1000f;
     private static InputManager instance;
     public static InputManager Instance
     {
@@ -44,6 +45,8 @@ public class InputManager:MonoBehaviour
         }
         else isMove = false;
         Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        targetX = Mathf.RoundToInt(mousePos.x * TargetPositionScale);
+        targetY = Mathf.RoundToInt(mousePos.y * TargetPositionScale);
         Vector2 dir = new Vector2(mousePos.x, mousePos.y) - LocalInfo._currLogicPos.ToVector2();
         float angle = Vector2.Angle(Vector2.down, dir);
         if (angle >= 145.0f)
@@ -98,6 +101,8 @@ public class InputManager:MonoBehaviour
         {
             moveDirx = _moveX,
             moveDiry = _moveY,
+            targetX = targetX,
+            targetY = targetY,
             state = localState,
             code = localAction,
             flipx = locaFlipx,

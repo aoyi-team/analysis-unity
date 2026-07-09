@@ -13,6 +13,28 @@ public class SupabaseConfig : ScriptableObject
     [Tooltip("Supabase 匿名公开 API Key")]
     public string AnonKey = ServerConfig.SupabaseAnonKey;
 
+    [Tooltip("Web 在线匹配 API 根地址，例如 https://your-app.vercel.app")]
+    public string OnlineMatchApiBaseUrl = ServerConfig.OnlineMatchApiBaseUrl;
+
+    [Tooltip("Edgegap Lobby Service URL，用于 Mirror EdgegapLobbyKcpTransport")]
+    public string EdgegapLobbyUrl = ServerConfig.EdgegapLobbyUrl;
+
+    [Tooltip("在线匹配连接模式：DedicatedServer=Edgegap 专服，PlayerHostedRelay=玩家主机+Relay")]
+    public OnlineConnectionMode OnlineConnectionMode = ServerConfig.DefaultOnlineConnectionMode;
+
+    [Tooltip("旧配置字段：请改用 OnlineConnectionMode")]
+    [System.Obsolete("Use OnlineConnectionMode instead.")]
+    public bool UseEdgegapDedicatedServer = ServerConfig.UseEdgegapDedicatedServer;
+
+    [Tooltip("Edgegap Dedicated Server 对外 FQDN，例如 xxx.pr.edgegap.net")]
+    public string EdgegapDedicatedHost = ServerConfig.EdgegapDedicatedHost;
+
+    [Tooltip("Edgegap Dedicated Server 对外 UDP 端口")]
+    public int EdgegapDedicatedUdpPort = ServerConfig.EdgegapDedicatedUdpPort;
+
+    [Tooltip("Edgegap 容器内 Mirror KCP 监听端口")]
+    public int EdgegapDedicatedServerListenPort = ServerConfig.EdgegapDedicatedServerListenPort;
+
     [Tooltip("用户资料表名")]
     public string ProfilesTable = "profiles";
 

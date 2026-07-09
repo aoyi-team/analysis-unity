@@ -278,7 +278,14 @@ public class NetWorkMgr : MonoBehaviour
             MsgListener listeners = msgListeners[msgName];
             if (listeners != null)
             {
-                listeners(msgBase);
+                try
+                {
+                    listeners(msgBase);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[NetWorkMgr] 消息监听器异常: msg={msgName}, payload={(msgBase != null ? msgBase.GetType().Name : "null")}\n{ex}");
+                }
             }
         }
     }
@@ -374,7 +381,7 @@ public class NetWorkMgr : MonoBehaviour
     public static void Send(MsgBase msg)
     {
         // Mirror 模式下通过 Mirror 发送
-        if (MirrorNetBridge.IsMirrorActive)
+        if (MirrorNetBridge.CanClientSend)
         {
             MirrorNetBridge.ClientSend(msg);
             return;
