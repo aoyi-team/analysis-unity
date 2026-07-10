@@ -44,6 +44,7 @@ namespace Edgegap.Editor
             EdgegapWindowMetadata.LOG_LEVEL == EdgegapWindowMetadata.LogLevel.Debug;
         private bool _isApiTokenVerified; // Toggles the rest of the UI
         private bool _isVerifyingToken;
+        private bool _uiCallbacksRegistered;
 
         private GetRegistryCredentialsResult _credentials;
         private string _userExternalIp;
@@ -582,6 +583,8 @@ namespace Edgegap.Editor
             _serverConnectLink.clickable.clicked += OnServerConnectLinkClick;
             _gen2MatchmakerLabelLink.clickable.clicked += OnMatchmakerLinkClick;
             _lifecycleManageLabelLink.clickable.clicked += OnScalingLifecycleLinkClick;
+
+            _uiCallbacksRegistered = true;
         }
 
         /// <summary>
@@ -590,79 +593,101 @@ namespace Edgegap.Editor
         /// </summary>
         private void unregisterUICallbacks()
         {
-            _headerLogoImage?.UnregisterCallback<ClickEvent>(OpenGettingStartedUrl);
-            _debugBtn.clickable.clicked -= OnDebugBtnClick;
+            if (!_uiCallbacksRegistered)
+            {
+                return;
+            }
 
-            _edgegapSignInBtn.clickable.clicked -= OnEdgegapSignInBtnClick;
-            _apiTokenGetBtn.clickable.clicked -= OpenGetTokenUrl;
-            _apiTokenInput.UnregisterCallback<FocusInEvent>(OnApiTokenInputFocusIn);
-            _apiTokenInput.UnregisterCallback<FocusOutEvent>(OnApiTokenInputFocusOut);
-            _apiTokenVerifyBtn.clickable.clicked -= OnApiTokenVerifyBtnClick;
-            _signOutBtn.clickable.clicked -= OnSignOutBtnClickAsync;
-            _joinEdgegapDiscordBtn.clickable.clicked -= OnDiscordBtnClick;
+            _uiCallbacksRegistered = false;
 
-            _infoLinuxRequirementsBtn.clickable.clicked -= OnLinuxInfoClick;
-            _installLinuxRequirementsBtn.clickable.clicked -= OnInstallLinuxBtnClick;
-            _buildParamsBtn.clickable.clicked -= OnOpenBuildParamsBtnClick;
-            _buildFolderNameInput.UnregisterCallback<FocusOutEvent>(OnFolderNameInputFocusOut);
-            _serverBuildBtn.clickable.clicked -= OnBuildServerBtnClick;
+            UnregisterElementCallback<ClickEvent>(_headerLogoImage, OpenGettingStartedUrl);
+            UnregisterClicked(_debugBtn, OnDebugBtnClick);
 
-            _infoDockerRequirementsBtn.clickable.clicked -= OnDockerInfoClick;
-            _validateDockerRequirementsBtn.clickable.clicked -= OnValidateDockerBtnClick;
-            _buildPathInput.UnregisterCallback<FocusInEvent>(OnBuildPathInputFocusIn);
-            _buildPathResetBtn.clickable.clicked -= OnResetBuildPathBtnClick;
-            _containerizeImageNameInput.UnregisterValueChangedCallback(OnContainerizeInputsChanged);
-            _containerizeImageNameInput.UnregisterCallback<FocusInEvent>(
-                OnContainerizeImageNameInputFocusIn
-            );
-            _containerizeImageNameInput.UnregisterCallback<FocusOutEvent>(
-                OnContainerizeImageNameInputFocusOut
-            );
-            _containerizeImageTagInput.UnregisterValueChangedCallback(OnContainerizeInputsChanged);
-            _containerizeImageTagInput.UnregisterCallback<FocusInEvent>(
-                OnContainerizeImageTagInputFocusIn
-            );
-            _containerizeImageTagInput.UnregisterCallback<FocusOutEvent>(
-                OnContainerizeImageTagInputFocusOut
-            );
-            _dockerfilePathResetBtn.clickable.clicked -= OnResetDockerfilePathBtnClick;
-            _dockerfilePathInput.UnregisterCallback<FocusInEvent>(OnDockerfilePathInputFocusIn);
-            _containerizeServerBtn.clickable.clicked -= OnContainerizeBtnClick;
+            UnregisterClicked(_edgegapSignInBtn, OnEdgegapSignInBtnClick);
+            UnregisterClicked(_apiTokenGetBtn, OpenGetTokenUrl);
+            UnregisterElementCallback<FocusInEvent>(_apiTokenInput, OnApiTokenInputFocusIn);
+            UnregisterElementCallback<FocusOutEvent>(_apiTokenInput, OnApiTokenInputFocusOut);
+            UnregisterClicked(_apiTokenVerifyBtn, OnApiTokenVerifyBtnClick);
+            UnregisterClicked(_signOutBtn, OnSignOutBtnClickAsync);
+            UnregisterClicked(_joinEdgegapDiscordBtn, OnDiscordBtnClick);
 
-            _localTestImageInput.UnregisterCallback<FocusInEvent>(OnLocalTestInputFocusIn);
-            _localTestImageInput.UnregisterValueChangedCallback(OnLocalTestInputsChanged);
-            _localTestImageShowDropdownBtn.clickable.clicked -= OnLocalTestImageDropdownClick;
-            _localTestDockerRunInput.UnregisterCallback<FocusOutEvent>(
-                OnLocalTestDockerParamsFocusOut
-            );
-            _localTestDeployBtn.clickable.clicked -= OnLocalTestDeployClick;
-            _localTestTerminateBtn.clickable.clicked -= OnLocalTestTerminateCLick;
-            _localTestDiscordHelpBtn.clickable.clicked -= OnDiscordBtnClick;
-            _localTestInfoConnectBtn.clickable.clicked -= OnLocalContainerConnectLinkClick;
+            UnregisterClicked(_infoLinuxRequirementsBtn, OnLinuxInfoClick);
+            UnregisterClicked(_installLinuxRequirementsBtn, OnInstallLinuxBtnClick);
+            UnregisterClicked(_buildParamsBtn, OnOpenBuildParamsBtnClick);
+            UnregisterElementCallback<FocusOutEvent>(_buildFolderNameInput, OnFolderNameInputFocusOut);
+            UnregisterClicked(_serverBuildBtn, OnBuildServerBtnClick);
 
-            _createAppNameShowDropdownBtn.clickable.clicked -= OnCreateAppNameDropdownClick;
-            _createAppNameInput.UnregisterCallback<FocusOutEvent>(OnCreateAppNameInputFocusOut);
-            _serverImageNameInput.UnregisterValueChangedCallback(OnCreateInputsChanged);
-            _serverImageTagInput.UnregisterValueChangedCallback(OnCreateInputsChanged);
-            _portMappingLabelLink.clickable.clicked -= OnPortsMappingLinkClick;
-            _uploadImageCreateAppBtn.clickable.clicked -= OnUploadImageCreateAppBtnClick;
-            _appInfoLabelLink.clickable.clicked -= OnYourAppLinkClick;
-            _rebuildFromSrcBtn.clickable.clicked -= OnRebuildFromSrcBtnClickAsync;
+            UnregisterClicked(_infoDockerRequirementsBtn, OnDockerInfoClick);
+            UnregisterClicked(_validateDockerRequirementsBtn, OnValidateDockerBtnClick);
+            UnregisterElementCallback<FocusInEvent>(_buildPathInput, OnBuildPathInputFocusIn);
+            UnregisterClicked(_buildPathResetBtn, OnResetBuildPathBtnClick);
+            UnregisterValueChanged(_containerizeImageNameInput, OnContainerizeInputsChanged);
+            UnregisterElementCallback<FocusInEvent>(_containerizeImageNameInput, OnContainerizeImageNameInputFocusIn);
+            UnregisterElementCallback<FocusOutEvent>(_containerizeImageNameInput, OnContainerizeImageNameInputFocusOut);
+            UnregisterValueChanged(_containerizeImageTagInput, OnContainerizeInputsChanged);
+            UnregisterElementCallback<FocusInEvent>(_containerizeImageTagInput, OnContainerizeImageTagInputFocusIn);
+            UnregisterElementCallback<FocusOutEvent>(_containerizeImageTagInput, OnContainerizeImageTagInputFocusOut);
+            UnregisterClicked(_dockerfilePathResetBtn, OnResetDockerfilePathBtnClick);
+            UnregisterElementCallback<FocusInEvent>(_dockerfilePathInput, OnDockerfilePathInputFocusIn);
+            UnregisterClicked(_containerizeServerBtn, OnContainerizeBtnClick);
 
-            _deployAppNameInput.UnregisterCallback<FocusInEvent>(OnDeployAppNameInputFocusIn);
-            _deployAppNameInput.UnregisterValueChangedCallback(OnDeployAppNameInputChanged);
-            _deployAppNameShowDropdownBtn.clickable.clicked -= OnDeployAppNameDropdownClick;
-            _deployAppVersionInput.UnregisterCallback<FocusInEvent>(OnDeployAppVersionInputFocusIn);
-            _deployAppVersionInput.UnregisterValueChangedCallback(OnDeployAppVersionInputChanged);
-            _deployAppVersionShowDropdownBtn.clickable.clicked -= OnDeployAppVersionDropdownClick;
-            _deployLimitLabelLink.clickable.clicked -= OnDeployLimitLinkClick;
-            _deployAppBtn.clickable.clicked -= OnDeploymentCreateBtnClick;
-            _stopLastDeployBtn.clickable.clicked -= OnStopLastDeployClick;
-            _discordHelpBtn.clickable.clicked -= OnDiscordBtnClick;
+            UnregisterElementCallback<FocusInEvent>(_localTestImageInput, OnLocalTestInputFocusIn);
+            UnregisterValueChanged(_localTestImageInput, OnLocalTestInputsChanged);
+            UnregisterClicked(_localTestImageShowDropdownBtn, OnLocalTestImageDropdownClick);
+            UnregisterElementCallback<FocusOutEvent>(_localTestDockerRunInput, OnLocalTestDockerParamsFocusOut);
+            UnregisterClicked(_localTestDeployBtn, OnLocalTestDeployClick);
+            UnregisterClicked(_localTestTerminateBtn, OnLocalTestTerminateCLick);
+            UnregisterClicked(_localTestDiscordHelpBtn, OnDiscordBtnClick);
+            UnregisterClicked(_localTestInfoConnectBtn, OnLocalContainerConnectLinkClick);
 
-            _serverConnectLink.clickable.clicked -= OnServerConnectLinkClick;
-            _gen2MatchmakerLabelLink.clickable.clicked -= OnMatchmakerLinkClick;
-            _lifecycleManageLabelLink.clickable.clicked -= OnScalingLifecycleLinkClick;
+            UnregisterClicked(_createAppNameShowDropdownBtn, OnCreateAppNameDropdownClick);
+            UnregisterElementCallback<FocusOutEvent>(_createAppNameInput, OnCreateAppNameInputFocusOut);
+            UnregisterValueChanged(_serverImageNameInput, OnCreateInputsChanged);
+            UnregisterValueChanged(_serverImageTagInput, OnCreateInputsChanged);
+            UnregisterClicked(_portMappingLabelLink, OnPortsMappingLinkClick);
+            UnregisterClicked(_uploadImageCreateAppBtn, OnUploadImageCreateAppBtnClick);
+            UnregisterClicked(_appInfoLabelLink, OnYourAppLinkClick);
+            UnregisterClicked(_rebuildFromSrcBtn, OnRebuildFromSrcBtnClickAsync);
+
+            UnregisterElementCallback<FocusInEvent>(_deployAppNameInput, OnDeployAppNameInputFocusIn);
+            UnregisterValueChanged(_deployAppNameInput, OnDeployAppNameInputChanged);
+            UnregisterClicked(_deployAppNameShowDropdownBtn, OnDeployAppNameDropdownClick);
+            UnregisterElementCallback<FocusInEvent>(_deployAppVersionInput, OnDeployAppVersionInputFocusIn);
+            UnregisterValueChanged(_deployAppVersionInput, OnDeployAppVersionInputChanged);
+            UnregisterClicked(_deployAppVersionShowDropdownBtn, OnDeployAppVersionDropdownClick);
+            UnregisterClicked(_deployLimitLabelLink, OnDeployLimitLinkClick);
+            UnregisterClicked(_deployAppBtn, OnDeploymentCreateBtnClick);
+            UnregisterClicked(_stopLastDeployBtn, OnStopLastDeployClick);
+            UnregisterClicked(_discordHelpBtn, OnDiscordBtnClick);
+
+            UnregisterClicked(_serverConnectLink, OnServerConnectLinkClick);
+            UnregisterClicked(_gen2MatchmakerLabelLink, OnMatchmakerLinkClick);
+            UnregisterClicked(_lifecycleManageLabelLink, OnScalingLifecycleLinkClick);
+        }
+
+        private static void UnregisterClicked(Button button, Action callback)
+        {
+            if (button?.clickable != null)
+            {
+                button.clickable.clicked -= callback;
+            }
+        }
+
+        private static void UnregisterElementCallback<TEventType>(
+            VisualElement element,
+            EventCallback<TEventType> callback
+        )
+            where TEventType : EventBase<TEventType>, new()
+        {
+            element?.UnregisterCallback(callback);
+        }
+
+        private static void UnregisterValueChanged(
+            TextField field,
+            EventCallback<ChangeEvent<string>> callback
+        )
+        {
+            field?.UnregisterValueChangedCallback(callback);
         }
 
         private void initToggleDynamicUI()
