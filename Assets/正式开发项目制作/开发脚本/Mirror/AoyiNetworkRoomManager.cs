@@ -32,6 +32,15 @@ namespace Aoyi.Mirror
         [System.NonSerialized]
         private bool _battleSceneChangeStarted = false;
 
+        [System.NonSerialized]
+        private readonly List<PlayerData> _battlePlayersSnapshot = new List<PlayerData>();
+
+        [System.NonSerialized]
+        private int _localBattleIndexSnapshot = -1;
+
+        [System.NonSerialized]
+        private int _localBattleTeamIdSnapshot = 0;
+
         public static bool HasEnoughPlayersToStart(int currentPlayers, int requiredPlayers)
         {
             return currentPlayers >= Mathf.Max(1, requiredPlayers);
@@ -99,6 +108,7 @@ namespace Aoyi.Mirror
         {
             _battleStarted = false;
             _battleSceneChangeStarted = false;
+            ClearBattleSnapshot();
             minPlayers = Mathf.Max(1, maxRoomPlayers);
             Debug.Log($"[AoyiNetworkRoomManager] OnRoomStartHost, roomSlots.Count={roomSlots.Count}, maxRoomPlayers={maxRoomPlayers}");
         }
@@ -204,6 +214,7 @@ namespace Aoyi.Mirror
 
             _battleSceneChangeStarted = true;
             string scene = string.IsNullOrEmpty(pendingBattleScene) ? GameplayScene : pendingBattleScene;
+            CaptureBattleSnapshot("OnRoomServerPlayersReady");
             Debug.Log($"[AoyiNetworkRoomManager] OnRoomServerPlayersReady, 切换到战斗场景: {scene}");
             ServerChangeScene(scene);
         }
@@ -233,7 +244,7 @@ namespace Aoyi.Mirror
                 }
                 _battleStarted = true;
 
-                var allPlayers = BuildAllPlayersFromRoomSlots();
+                var allPlayers = GetBattlePlayersForScene();
                 Debug.Log($"[AoyiNetworkRoomManager] 战斗场景加载完成，玩家数={allPlayers.Count}, 玩家列表: {string.Join(", ", System.Linq.Enumerable.Select(allPlayers, p => $"{p.userId}(hero={p.HeroId}, team={p.teamId})"))}");
                 MirrorNetBridge.ResetBattleFrameState(PlayerBasicInfoMgr.Instance?.RoomId, allPlayers.Count);
 
@@ -261,7 +272,7 @@ namespace Aoyi.Mirror
 
             if (IsAoyiBattleScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name))
             {
-                var allPlayers = BuildAllPlayersFromRoomSlots();
+                var allPlayers = GetBattlePlayersForScene();
                 var mgr = PlayerBasicInfoMgr.Instance;
                 if (mgr != null)
                 {
@@ -315,39 +326,76 @@ namespace Aoyi.Mirror
             }
         }
 
+        private void ClearBattleSnapshot()
+        {
+            _battlePlayersSnapshot.Clear();
+            _localBattleIndexSnapshot = -1;
+            _localBattleTeamIdSnapshot = 0;
+        }
+
+        private void CaptureBattleSnapshot(string reason)
+        {
+            _battlePlayersSnapshot.Clear();
+            _battlePlayersSnapshot.AddRange(BuildAllPlayersFromRoomSlots());
+            _localBattleIndexSnapshot = GetLocalPlayerIndexFromRoomSlots();
+            _localBattleTeamIdSnapshot = GetLocalPlayerTeamIdFromRoomSlots();
+            Debug.Log($"[AoyiNetworkRoomManager] 捕获战斗玩家快照({reason})，玩家数={_battlePlayersSnapshot.Count}, localIndex={_localBattleIndexSnapshot}, localTeam={_localBattleTeamIdSnapshot}");
+        }
+
+        private List<PlayerData> GetBattlePlayersForScene()
+        {
+            if (_battlePlayersSnapshot.Count > 0)
+            {
+                return new List<PlayerData>(_battlePlayersSnapshot);
+            }
+
+            return BuildAllPlayersFromRoomSlots();
+        }
+
         private List<PlayerData> BuildAllPlayersFromRoomSlots()
         {
             var list = new List<PlayerData>();
-            int i = 0;
-            foreach (var slot in roomSlots)
+            List<AoyiRoomPlayer> orderedPlayers = GetOrderedRoomPlayers();
+
+            for (int i = 0; i < orderedPlayers.Count; i++)
             {
-                if (slot is AoyiRoomPlayer aoyiPlayer)
+                AoyiRoomPlayer aoyiPlayer = orderedPlayers[i];
+                int userId = aoyiPlayer.index >= 0 ? aoyiPlayer.index : i;
+                int teamId = aoyiPlayer.teamId > 0 ? aoyiPlayer.teamId : i + 1;
+                list.Add(new PlayerData
                 {
-                    int userId = i;
-                    int teamId = i + 1;
-                    list.Add(new PlayerData
-                    {
-                        userId = userId.ToString(),
-                        teamId = teamId,
-                        HeroId = aoyiPlayer.heroId > 0 ? aoyiPlayer.heroId : 101
-                    });
-                }
-                i++;
+                    userId = userId.ToString(),
+                    teamId = teamId,
+                    HeroId = aoyiPlayer.heroId > 0 ? aoyiPlayer.heroId : 101
+                });
             }
             return list;
         }
 
-        public int GetLocalPlayerIndex()
+        private List<AoyiRoomPlayer> GetOrderedRoomPlayers()
         {
-            int i = 0;
+            var players = new List<AoyiRoomPlayer>();
             foreach (var slot in roomSlots)
             {
-                if (slot is AoyiRoomPlayer aoyiPlayer && aoyiPlayer.isLocalPlayer)
+                if (slot is AoyiRoomPlayer aoyiPlayer)
                 {
-                    return i;
+                    players.Add(aoyiPlayer);
                 }
-                i++;
             }
+
+            players.Sort((a, b) => a.index.CompareTo(b.index));
+            return players;
+        }
+
+        public int GetLocalPlayerIndex()
+        {
+            int index = GetLocalPlayerIndexFromRoomSlots();
+            if (index >= 0)
+                return index;
+
+            if (_localBattleIndexSnapshot >= 0)
+                return _localBattleIndexSnapshot;
+
             if (global::Mirror.NetworkServer.active && global::Mirror.NetworkClient.active && roomSlots.Count == 1)
             {
                 return 0;
@@ -357,19 +405,47 @@ namespace Aoyi.Mirror
 
         public int GetLocalPlayerTeamId()
         {
-            int i = 0;
-            foreach (var slot in roomSlots)
-            {
-                if (slot is AoyiRoomPlayer aoyiPlayer && aoyiPlayer.isLocalPlayer)
-                {
-                    return i + 1;
-                }
-                i++;
-            }
+            int teamId = GetLocalPlayerTeamIdFromRoomSlots();
+            if (teamId > 0)
+                return teamId;
+
+            if (_localBattleTeamIdSnapshot > 0)
+                return _localBattleTeamIdSnapshot;
+
             if (global::Mirror.NetworkServer.active && global::Mirror.NetworkClient.active && roomSlots.Count == 1)
             {
                 return 1;
             }
+            return 0;
+        }
+
+        private int GetLocalPlayerIndexFromRoomSlots()
+        {
+            List<AoyiRoomPlayer> orderedPlayers = GetOrderedRoomPlayers();
+            for (int i = 0; i < orderedPlayers.Count; i++)
+            {
+                AoyiRoomPlayer aoyiPlayer = orderedPlayers[i];
+                if (aoyiPlayer.isLocalPlayer)
+                {
+                    return aoyiPlayer.index >= 0 ? aoyiPlayer.index : i;
+                }
+            }
+
+            return -1;
+        }
+
+        private int GetLocalPlayerTeamIdFromRoomSlots()
+        {
+            List<AoyiRoomPlayer> orderedPlayers = GetOrderedRoomPlayers();
+            for (int i = 0; i < orderedPlayers.Count; i++)
+            {
+                AoyiRoomPlayer aoyiPlayer = orderedPlayers[i];
+                if (aoyiPlayer.isLocalPlayer)
+                {
+                    return aoyiPlayer.teamId > 0 ? aoyiPlayer.teamId : i + 1;
+                }
+            }
+
             return 0;
         }
 
