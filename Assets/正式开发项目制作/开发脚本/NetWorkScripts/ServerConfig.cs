@@ -28,10 +28,10 @@ public class ServerConfig
     public const string OnlineMatchApiBaseUrl = "https://aoyi-web.vercel.app";
     /// <summary>Edgegap Lobby Service URL。需要在 Edgegap 部署 Lobby Service 后填入。</summary>
     public const string EdgegapLobbyUrl = "";
-    /// <summary>在线匹配默认连接模式。</summary>
-    public const OnlineConnectionMode DefaultOnlineConnectionMode = OnlineConnectionMode.DedicatedServer;
-    /// <summary>在线匹配是否优先连接 Edgegap Dedicated Server，而不是让玩家创建 Lobby/Host。</summary>
-    public const bool UseEdgegapDedicatedServer = true;
+    /// <summary>在线匹配默认连接模式。1v1 主方案使用玩家主机 + Edgegap Relay。</summary>
+    public const OnlineConnectionMode DefaultOnlineConnectionMode = OnlineConnectionMode.PlayerHostedRelay;
+    /// <summary>旧开关，仅为兼容旧序列化字段保留。请使用 DefaultOnlineConnectionMode。</summary>
+    public const bool UseEdgegapDedicatedServer = false;
     /// <summary>Edgegap Dedicated Server 对外 FQDN。重新部署后可能变化。</summary>
     public const string EdgegapDedicatedHost = "bf5855a39bca.pr.edgegap.net";
     /// <summary>Edgegap Dedicated Server 对外 UDP 端口。重新部署后可能变化。</summary>

@@ -276,6 +276,24 @@ public class AoyiNetworkRoomManagerTests
         Assert.IsTrue((bool)onlineMatchMethod.Invoke(null, new object[] { supabaseOnline }));
     }
 
+    [Test]
+    public void OnlineMatchDefaultsToPlayerHostedRelay()
+    {
+        System.Type connectionModeType = System.Type.GetType("OnlineConnectionMode, Assembly-CSharp");
+        Assert.NotNull(connectionModeType, "OnlineConnectionMode type should be available.");
+
+        object playerHostedRelay = System.Enum.Parse(connectionModeType, "PlayerHostedRelay");
+
+        System.Type configType = System.Type.GetType("ServerConfig, Assembly-CSharp");
+        Assert.NotNull(configType, "ServerConfig type should be available.");
+
+        object defaultMode = configType.GetField("DefaultOnlineConnectionMode").GetValue(null);
+        object legacyDedicatedFlag = configType.GetField("UseEdgegapDedicatedServer").GetValue(null);
+
+        Assert.AreEqual(playerHostedRelay, defaultMode, "1v1 online play should default to Edgegap Relay instead of Dedicated Server.");
+        Assert.IsFalse((bool)legacyDedicatedFlag, "The legacy dedicated flag should stay false when Relay is the primary path.");
+    }
+
     private static object CreatePlayerInfo(System.Type playerInfoType, System.Type fixedVector2Type, string userId, int heroId, int teamId, int x, int y)
     {
         object bornPoint = System.Activator.CreateInstance(fixedVector2Type, x, y);

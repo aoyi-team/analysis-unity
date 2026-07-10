@@ -15,8 +15,6 @@ public enum OnlineConnectionMode
 public static class OnlineConnectionLauncher
 {
     private const int MaxPlayers = 2;
-    private const int LobbyLookupAttempts = 30;
-    private const int LobbyLookupDelayMs = 1000;
 
     public static async Task<bool> StartMatchedRoomAsync(OnlineMatchResponse match, GameModes mode, int heroId, int skinId)
     {
@@ -112,43 +110,47 @@ public static class OnlineConnectionLauncher
         }
     }
 
-    private static async Task<bool> StartPlayerHostedRelayAsync(AoyiNetworkRoomManager nm, OnlineMatchResponse match)
+    private static Task<bool> StartPlayerHostedRelayAsync(AoyiNetworkRoomManager nm, OnlineMatchResponse match)
     {
-        EdgegapLobbyKcpTransport transport = nm.transport as EdgegapLobbyKcpTransport;
+        EdgegapKcpTransport transport = nm.transport as EdgegapKcpTransport;
         if (transport == null)
         {
-            Debug.LogError("[OnlineConnectionLauncher] PlayerHostedRelay 需要 EdgegapLobbyKcpTransport");
-            return false;
+            Debug.LogError("[OnlineConnectionLauncher] PlayerHostedRelay 需要 EdgegapKcpTransport");
+            return Task.FromResult(false);
         }
 
-        if (string.IsNullOrWhiteSpace(transport.lobbyUrl))
+        if (!TryGetRelayConnectionInfo(match, out EdgegapRelayConnectionInfo connectionInfo))
         {
-            Debug.LogError("[OnlineConnectionLauncher] EdgegapLobbyUrl 未配置，请在 Resources/SupabaseConfig.asset 中填入 Edgegap Lobby Service URL");
-            return false;
+            Debug.LogError("[OnlineConnectionLauncher] 匹配结果缺少 Edgegap relay_session 连接信息");
+            return Task.FromResult(false);
+        }
+
+        if (!ConfigureRelayTransport(transport, connectionInfo))
+        {
+            return Task.FromResult(false);
         }
 
         if (string.Equals(match.Role, "host", StringComparison.OrdinalIgnoreCase))
         {
-            return StartRelayHost(nm, transport, match.RoomId);
+            return Task.FromResult(StartRelayHost(nm, match.RoomId, connectionInfo));
         }
 
         if (string.Equals(match.Role, "guest", StringComparison.OrdinalIgnoreCase))
         {
-            return await StartRelayClientWhenLobbyAppears(nm, transport, match.RoomId);
+            return Task.FromResult(StartRelayClient(nm, match.RoomId, connectionInfo));
         }
 
         Debug.LogWarning($"[OnlineConnectionLauncher] 未知在线匹配角色：{match.Role}");
-        return false;
+        return Task.FromResult(false);
     }
 
-    private static bool StartRelayHost(AoyiNetworkRoomManager nm, EdgegapLobbyKcpTransport transport, string roomId)
+    private static bool StartRelayHost(AoyiNetworkRoomManager nm, string roomId, EdgegapRelayConnectionInfo connectionInfo)
     {
         try
         {
-            transport.SetServerLobbyParams(roomId, MaxPlayers);
             nm.networkAddress = roomId;
             nm.StartHost();
-            Debug.Log($"[OnlineConnectionLauncher] Host 已开始创建 Edgegap relay lobby，name={roomId}");
+            Debug.Log($"[OnlineConnectionLauncher] Host 已通过 Edgegap Distributed Relay 启动，relay={connectionInfo.RelayHost}, roomId={roomId}");
             return true;
         }
         catch (Exception ex)
@@ -158,51 +160,20 @@ public static class OnlineConnectionLauncher
         }
     }
 
-    private static async Task<bool> StartRelayClientWhenLobbyAppears(AoyiNetworkRoomManager nm, EdgegapLobbyKcpTransport transport, string roomId)
+    private static bool StartRelayClient(AoyiNetworkRoomManager nm, string roomId, EdgegapRelayConnectionInfo connectionInfo)
     {
-        for (int i = 0; i < LobbyLookupAttempts; i++)
+        try
         {
-            LobbyBrief? lobby = await FindLobbyByNameAsync(transport, roomId);
-            if (lobby.HasValue)
-            {
-                nm.networkAddress = lobby.Value.lobby_id;
-                nm.StartClient();
-                Debug.Log($"[OnlineConnectionLauncher] Guest 已找到 Edgegap relay lobby，name={roomId}, lobbyId={lobby.Value.lobby_id}");
-                return true;
-            }
-
-            await Task.Delay(LobbyLookupDelayMs);
+            nm.networkAddress = roomId;
+            nm.StartClient();
+            Debug.Log($"[OnlineConnectionLauncher] Guest 已通过 Edgegap Distributed Relay 连接，relay={connectionInfo.RelayHost}, roomId={roomId}");
+            return true;
         }
-
-        Debug.LogWarning($"[OnlineConnectionLauncher] 等待 Edgegap relay lobby 超时，name={roomId}");
-        return false;
-    }
-
-    private static Task<LobbyBrief?> FindLobbyByNameAsync(EdgegapLobbyKcpTransport transport, string lobbyName)
-    {
-        var tcs = new TaskCompletionSource<LobbyBrief?>();
-        transport.Api.RefreshLobbies(lobbies =>
+        catch (Exception ex)
         {
-            if (lobbies != null)
-            {
-                foreach (LobbyBrief lobby in lobbies)
-                {
-                    if (lobby.is_joinable && string.Equals(lobby.name, lobbyName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        tcs.TrySetResult(lobby);
-                        return;
-                    }
-                }
-            }
-
-            tcs.TrySetResult(null);
-        }, error =>
-        {
-            Debug.LogWarning($"[OnlineConnectionLauncher] 查询 Edgegap relay lobby 列表失败：{error}");
-            tcs.TrySetResult(null);
-        });
-
-        return tcs.Task;
+            Debug.LogError($"[OnlineConnectionLauncher] 连接 Edgegap relay host 失败：{ex}");
+            return false;
+        }
     }
 
     private static AoyiNetworkRoomManager EnsureDedicatedRoomManager()
@@ -248,13 +219,12 @@ public static class OnlineConnectionLauncher
         {
             CleanupMirrorState(existing);
 
-            EdgegapLobbyKcpTransport existingTransport = existing.GetComponent<EdgegapLobbyKcpTransport>();
+            EdgegapKcpTransport existingTransport = existing.GetComponent<EdgegapKcpTransport>();
             if (existingTransport == null)
             {
-                existingTransport = existing.gameObject.AddComponent<EdgegapLobbyKcpTransport>();
+                existingTransport = existing.gameObject.AddComponent<EdgegapKcpTransport>();
             }
 
-            ConfigureRelayTransport(existingTransport);
             existing.transport = existingTransport;
             Transport.active = existingTransport;
             return existing;
@@ -268,12 +238,11 @@ public static class OnlineConnectionLauncher
 
         GameObject go = new GameObject("AoyiOnlineRoomManager");
         UnityEngine.Object.DontDestroyOnLoad(go);
-        EdgegapLobbyKcpTransport transport = go.AddComponent<EdgegapLobbyKcpTransport>();
-        ConfigureRelayTransport(transport);
+        EdgegapKcpTransport transport = go.AddComponent<EdgegapKcpTransport>();
         AoyiNetworkRoomManager manager = go.AddComponent<AoyiNetworkRoomManager>();
         manager.transport = transport;
         Transport.active = transport;
-        Debug.Log("[OnlineConnectionLauncher] 自动创建 AoyiNetworkRoomManager + EdgegapLobbyKcpTransport（PlayerHostedRelay）");
+        Debug.Log("[OnlineConnectionLauncher] 自动创建 AoyiNetworkRoomManager + EdgegapKcpTransport（PlayerHostedRelay）");
         return manager;
     }
 
@@ -284,13 +253,6 @@ public static class OnlineConnectionLauncher
         {
             transport.Port = (ushort)port;
         }
-    }
-
-    private static void ConfigureRelayTransport(EdgegapLobbyKcpTransport transport)
-    {
-        transport.lobbyUrl = SupabaseConfig.Instance.EdgegapLobbyUrl;
-        transport.Api = new LobbyApi(transport.lobbyUrl);
-        transport.relayGUI = false;
     }
 
     private static void CleanupMirrorState(AoyiNetworkRoomManager nm)
@@ -307,6 +269,71 @@ public static class OnlineConnectionLauncher
         {
             nm.StopServer();
         }
+    }
+
+    private static bool TryGetRelayConnectionInfo(OnlineMatchResponse match, out EdgegapRelayConnectionInfo connectionInfo)
+    {
+        connectionInfo = null;
+        if (match?.Room == null)
+        {
+            return false;
+        }
+
+        var relaySession = match.Room["relay_session"] as Newtonsoft.Json.Linq.JObject;
+        if (relaySession == null)
+        {
+            return false;
+        }
+
+        string infoKey = string.Equals(match.Role, "host", StringComparison.OrdinalIgnoreCase)
+            ? "host_connection_info"
+            : "guest_connection_info";
+
+        var info = relaySession[infoKey] as Newtonsoft.Json.Linq.JObject;
+        if (info == null)
+        {
+            return false;
+        }
+
+        connectionInfo = info.ToObject<EdgegapRelayConnectionInfo>();
+        return connectionInfo != null;
+    }
+
+    private static bool ConfigureRelayTransport(EdgegapKcpTransport transport, EdgegapRelayConnectionInfo connectionInfo)
+    {
+        if (connectionInfo == null)
+        {
+            Debug.LogError("[OnlineConnectionLauncher] Edgegap relay 连接信息为空");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionInfo.RelayHost) && string.IsNullOrWhiteSpace(connectionInfo.RelayIp))
+        {
+            Debug.LogError("[OnlineConnectionLauncher] Edgegap relay host/ip 为空");
+            return false;
+        }
+
+        if (!IsValidUdpPort(connectionInfo.RelayServerPort) || !IsValidUdpPort(connectionInfo.RelayClientPort))
+        {
+            Debug.LogError($"[OnlineConnectionLauncher] Edgegap relay 端口非法：server={connectionInfo.RelayServerPort}, client={connectionInfo.RelayClientPort}");
+            return false;
+        }
+
+        transport.relayAddress = string.IsNullOrWhiteSpace(connectionInfo.RelayHost)
+            ? connectionInfo.RelayIp
+            : connectionInfo.RelayHost;
+        transport.relayGameServerPort = (ushort)connectionInfo.RelayServerPort;
+        transport.relayGameClientPort = (ushort)connectionInfo.RelayClientPort;
+        transport.sessionId = connectionInfo.SessionToken;
+        transport.userId = connectionInfo.UserToken;
+        transport.relayGUI = false;
+        Transport.active = transport;
+        return true;
+    }
+
+    private static bool IsValidUdpPort(int port)
+    {
+        return port > 0 && port <= ushort.MaxValue;
     }
 }
 

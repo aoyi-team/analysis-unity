@@ -36,6 +36,19 @@ public class OnlineMatchCancelResponse
     [JsonProperty("ticketId")] public string TicketId;
 }
 
+[Serializable]
+public class EdgegapRelayConnectionInfo
+{
+    [JsonProperty("provider")] public string Provider;
+    [JsonProperty("session_id")] public string SessionId;
+    [JsonProperty("session_token")] public uint SessionToken;
+    [JsonProperty("user_token")] public uint UserToken;
+    [JsonProperty("relay_host")] public string RelayHost;
+    [JsonProperty("relay_ip")] public string RelayIp;
+    [JsonProperty("relay_server_port")] public int RelayServerPort;
+    [JsonProperty("relay_client_port")] public int RelayClientPort;
+}
+
 public class OnlineMatchApiResult<T>
 {
     public bool Success;

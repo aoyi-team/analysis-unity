@@ -354,7 +354,7 @@ Relay 服务密钥只能放在 `Web/` 服务端环境变量里：
 ```env
 SUPABASE_URL=
 SUPABASE_SECRET_KEY=
-EDGEGAP_API_TOKEN=
+EDGEGAP_RELAY_TOKEN=
 UNITY_RELAY_SERVICE_KEY=
 EOS_CLIENT_SECRET=
 ```
@@ -452,14 +452,14 @@ LanHost/LanClient 仍然能局域网 1v1
 SupabaseOnline 进入独立在线匹配流程
 ```
 
-### Phase 2：Edgegap Relay 原型
+### Phase 2：Edgegap Distributed Relay Session API
 
-- Web API 先只负责 Supabase 原子匹配，返回 `roomId` 和 `role`。
-- Unity 使用 Mirror 自带 `EdgegapLobbyKcpTransport`。
-- Host 用 `roomId` 作为 Edgegap lobby name 创建 lobby。
-- Guest 用 `roomId` 查询 Edgegap lobby list，找到 `lobby_id` 后加入。
-- Mirror 通过 Edgegap lobby/relay transport 连接。
-- 成功进入 `dantiao_map`。
+- Web API 负责 Supabase 原子匹配，并保存两名玩家的公网 IP。
+- 匹配成功后由 Web 服务端调用 Edgegap `POST /v1/relays/sessions` 创建 relay session。
+- Web 轮询 `GET /v1/relays/sessions/{session_id}`，拿到 relay host、server/client 端口、session token 和玩家 token。
+- Web 将 host/guest 各自连接信息写入 `relay_sessions`，并通过 `room.relay_session` 返回给 Unity。
+- Unity 使用 `EdgegapKcpTransport`，根据自己的 `role` 选择 `host_connection_info` 或 `guest_connection_info`。
+- Host 调 `StartHost()`，Guest 调 `StartClient()`，成功进入 `dantiao_map`。
 
 验收：
 
@@ -476,18 +476,24 @@ ChooseHeroPanel
 -> OnlineMatchApiClient
 -> https://aoyi-web.vercel.app/api/match/*
 -> OnlineRelayConnector
--> EdgegapLobbyKcpTransport
+-> EdgegapKcpTransport
 -> AoyiNetworkRoomManager.StartHost / StartClient
 ```
 
-运行前必须在 `Resources/SupabaseConfig.asset` 填入：
+运行前必须配置：
 
 ```text
 OnlineMatchApiBaseUrl = https://aoyi-web.vercel.app
-EdgegapLobbyUrl = Edgegap Lobby Service URL
+OnlineConnectionMode = PlayerHostedRelay
 ```
 
-`EdgegapLobbyUrl` 不是 Edgegap API key，也不是 Web 地址。它是通过 Edgegap Lobby Service 部署后得到的公开 lobby service URL。API key 仍然不能放进 Unity 客户端。
+并在 Web/Vercel 服务端环境变量中配置：
+
+```env
+EDGEGAP_RELAY_TOKEN=<Edgegap Distributed Relay API token>
+```
+
+Relay API token 不能放进 Unity 客户端，也不需要再配置 `EdgegapLobbyUrl`。
 
 ### Phase 3：好友房复用同一连接层
 
@@ -518,6 +524,15 @@ EdgegapLobbyUrl = Edgegap Lobby Service URL
 首选：Edgegap Relay
 备选：Unity Relay
 长期研究：EOS P2P
+```
+
+当前 Unity 实现决策：
+
+```text
+默认在线连接模式：OnlineConnectionMode.PlayerHostedRelay
+本地/私有配置：Resources/SupabaseConfig.asset 只需要指向 Web API，并选择 PlayerHostedRelay
+Dedicated Server：保留为备用路径，不作为 1v1 默认方案
+Edgegap Lobby Service URL：不作为主方案，改用 Web 服务端创建 Relay Session
 ```
 
 当前不建议：
