@@ -15,6 +15,10 @@ public enum OnlineConnectionMode
 public static class OnlineConnectionLauncher
 {
     private const int MaxPlayers = 2;
+    private const int GuestInitialConnectDelayMs = 2500;
+    private const int GuestConnectAttempts = 4;
+    private const int GuestConnectAttemptTimeoutMs = 12000;
+    private const int GuestConnectRetryDelayMs = 1500;
 
     public static async Task<bool> StartMatchedRoomAsync(OnlineMatchResponse match, GameModes mode, int heroId, int skinId)
     {
@@ -110,38 +114,38 @@ public static class OnlineConnectionLauncher
         }
     }
 
-    private static Task<bool> StartPlayerHostedRelayAsync(AoyiNetworkRoomManager nm, OnlineMatchResponse match)
+    private static async Task<bool> StartPlayerHostedRelayAsync(AoyiNetworkRoomManager nm, OnlineMatchResponse match)
     {
         EdgegapKcpTransport transport = nm.transport as EdgegapKcpTransport;
         if (transport == null)
         {
             Debug.LogError("[OnlineConnectionLauncher] PlayerHostedRelay 需要 EdgegapKcpTransport");
-            return Task.FromResult(false);
+            return false;
         }
 
         if (!TryGetRelayConnectionInfo(match, out EdgegapRelayConnectionInfo connectionInfo))
         {
             Debug.LogError("[OnlineConnectionLauncher] 匹配结果缺少 Edgegap relay_session 连接信息");
-            return Task.FromResult(false);
+            return false;
         }
 
         if (!ConfigureRelayTransport(transport, connectionInfo))
         {
-            return Task.FromResult(false);
+            return false;
         }
 
         if (string.Equals(match.Role, "host", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(StartRelayHost(nm, match.RoomId, connectionInfo));
+            return StartRelayHost(nm, match.RoomId, connectionInfo);
         }
 
         if (string.Equals(match.Role, "guest", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(StartRelayClient(nm, match.RoomId, connectionInfo));
+            return await StartRelayClientWithRetryAsync(nm, match.RoomId, connectionInfo);
         }
 
         Debug.LogWarning($"[OnlineConnectionLauncher] 未知在线匹配角色：{match.Role}");
-        return Task.FromResult(false);
+        return false;
     }
 
     private static bool StartRelayHost(AoyiNetworkRoomManager nm, string roomId, EdgegapRelayConnectionInfo connectionInfo)
@@ -174,6 +178,47 @@ public static class OnlineConnectionLauncher
             Debug.LogError($"[OnlineConnectionLauncher] 连接 Edgegap relay host 失败：{ex}");
             return false;
         }
+    }
+
+    private static async Task<bool> StartRelayClientWithRetryAsync(AoyiNetworkRoomManager nm, string roomId, EdgegapRelayConnectionInfo connectionInfo)
+    {
+        await Task.Delay(GuestInitialConnectDelayMs);
+
+        for (int attempt = 1; attempt <= GuestConnectAttempts; attempt++)
+        {
+            CleanupMirrorState(nm);
+            ConfigureRelayTransport((EdgegapKcpTransport)nm.transport, connectionInfo);
+
+            if (!StartRelayClient(nm, roomId, connectionInfo))
+            {
+                await Task.Delay(GuestConnectRetryDelayMs);
+                continue;
+            }
+
+            float timeoutAt = Time.realtimeSinceStartup + GuestConnectAttemptTimeoutMs / 1000f;
+            while (Time.realtimeSinceStartup < timeoutAt)
+            {
+                if (NetworkClient.isConnected)
+                {
+                    Debug.Log($"[OnlineConnectionLauncher] Guest Relay 连接成功，attempt={attempt}, roomId={roomId}");
+                    return true;
+                }
+
+                if (!NetworkClient.active)
+                {
+                    break;
+                }
+
+                await Task.Delay(250);
+            }
+
+            Debug.LogWarning($"[OnlineConnectionLauncher] Guest Relay 连接未完成，准备重试 attempt={attempt}/{GuestConnectAttempts}, roomId={roomId}");
+            CleanupMirrorState(nm);
+            await Task.Delay(GuestConnectRetryDelayMs);
+        }
+
+        Debug.LogError($"[OnlineConnectionLauncher] Guest Relay 多次连接失败，roomId={roomId}, relay={connectionInfo.RelayHost}");
+        return false;
     }
 
     private static AoyiNetworkRoomManager EnsureDedicatedRoomManager()
