@@ -329,9 +329,9 @@ private void Send_BattleOver(_playerInfo deadPlayer)
             Debug.LogWarning($"[BattleManager] 停止 Mirror Client 时发生异常，继续返回大厅: {ex.Message}");
         }
 
-        if (SceneManager.GetActiveScene().name != "LobbyPanel")
+        if (SceneManager.GetActiveScene().name != GameSceneCatalog.Lobby)
         {
-            SceneManager.LoadScene("LobbyPanel");
+            SceneManager.LoadScene(GameSceneCatalog.Lobby);
         }
     }
     //Tcp�����������׼����ɵ�֪ͨ

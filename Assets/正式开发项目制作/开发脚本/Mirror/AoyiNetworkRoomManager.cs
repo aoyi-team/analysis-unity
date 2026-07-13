@@ -15,10 +15,10 @@ namespace Aoyi.Mirror
 
         [Header("奥义项目配置")]
         [Tooltip("房间场景名（角色选择面板所在的大厅场景）")]
-        public string aoyiRoomScene = "LobbyPanel";
+        public string aoyiRoomScene = GameSceneCatalog.Lobby;
 
         [Tooltip("战斗场景名列表")]
-        public string[] aoyiBattleScenes = new string[] { "dantiao_map", "paiwei_map" };
+        public string[] aoyiBattleScenes = { GameSceneCatalog.DantiaoBattle, GameSceneCatalog.PaiweiBattle };
 
         [System.NonSerialized]
         public string pendingBattleScene = "";
@@ -51,6 +51,17 @@ namespace Aoyi.Mirror
             return HasEnoughPlayersToStart(currentPlayers, requiredPlayers) && readyPlayers >= currentPlayers;
         }
 
+        public static bool ShouldDisconnectOnlineSessionAfterLobbyReturn(
+            string sceneName,
+            bool mirrorActive,
+            bool serverActive,
+            bool clientActive)
+        {
+            return mirrorActive
+                && (serverActive || clientActive)
+                && string.Equals(sceneName, GameSceneCatalog.Lobby, System.StringComparison.Ordinal);
+        }
+
         public bool CanStartBattle()
         {
             return HasEnoughPlayersToStart(roomSlots.Count, maxRoomPlayers);
@@ -69,7 +80,7 @@ namespace Aoyi.Mirror
             }
 
             RoomScene = aoyiRoomScene;
-            GameplayScene = aoyiBattleScenes.Length > 0 ? aoyiBattleScenes[0] : "dantiao_map";
+            GameplayScene = aoyiBattleScenes.Length > 0 ? aoyiBattleScenes[0] : GameSceneCatalog.DantiaoBattle;
 
             autoCreatePlayer = true;
 
@@ -235,6 +246,17 @@ namespace Aoyi.Mirror
             base.OnRoomServerSceneChanged(sceneName);
             Debug.Log($"[AoyiNetworkRoomManager] OnRoomServerSceneChanged: {sceneName}, roomSlots.Count={roomSlots.Count}, _battleStarted={_battleStarted}");
 
+            if (ShouldDisconnectOnlineSessionAfterLobbyReturn(
+                    sceneName,
+                    PlayerBasicInfoMgr.Instance != null
+                        && PlayerBasicInfoMgr.Instance.CurrentNetworkMode == NetworkMode.SupabaseOnline,
+                    NetworkServer.active,
+                    NetworkClient.active))
+            {
+                StartCoroutine(StopOnlineHostAfterLobbyReturn());
+                return;
+            }
+
             if (IsAoyiBattleScene(sceneName))
             {
                 if (_battleStarted)
@@ -262,7 +284,20 @@ namespace Aoyi.Mirror
         public override void OnRoomClientSceneChanged()
         {
             base.OnRoomClientSceneChanged();
-            Debug.Log($"[AoyiNetworkRoomManager] OnRoomClientSceneChanged: {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            Debug.Log($"[AoyiNetworkRoomManager] OnRoomClientSceneChanged: {sceneName}");
+
+            if (ShouldDisconnectOnlineSessionAfterLobbyReturn(
+                    sceneName,
+                    PlayerBasicInfoMgr.Instance != null
+                        && PlayerBasicInfoMgr.Instance.CurrentNetworkMode == NetworkMode.SupabaseOnline,
+                    NetworkServer.active,
+                    NetworkClient.active)
+                && !NetworkServer.active)
+            {
+                StartCoroutine(StopOnlineClientAfterLobbyReturn());
+                return;
+            }
 
             if (global::Mirror.NetworkServer.active && global::Mirror.NetworkClient.active)
             {
@@ -282,6 +317,41 @@ namespace Aoyi.Mirror
 
                 StartBattleLoad(allPlayers);
             }
+        }
+
+        private System.Collections.IEnumerator StopOnlineHostAfterLobbyReturn()
+        {
+            yield return null;
+
+            if (!NetworkServer.active)
+            {
+                yield break;
+            }
+
+            OnlineConnectionLauncher.NotifyMatchedRoomEnded();
+            Debug.Log("[AoyiNetworkRoomManager] 在线战斗已回大厅，停止 Host/服务器并结束当前房间会话");
+            if (NetworkClient.active)
+            {
+                StopHost();
+            }
+            else
+            {
+                StopServer();
+            }
+        }
+
+        private System.Collections.IEnumerator StopOnlineClientAfterLobbyReturn()
+        {
+            yield return null;
+
+            if (!NetworkClient.active || NetworkServer.active)
+            {
+                yield break;
+            }
+
+            OnlineConnectionLauncher.NotifyMatchedRoomEnded();
+            Debug.Log("[AoyiNetworkRoomManager] 在线战斗已回大厅，停止 Client 并结束当前房间会话");
+            StopClient();
         }
 
         private void StartBattleLoad(List<PlayerData> allPlayers)
@@ -451,11 +521,7 @@ namespace Aoyi.Mirror
 
         public bool IsAoyiBattleScene(string sceneName)
         {
-            foreach (var s in aoyiBattleScenes)
-            {
-                if (s == sceneName) return true;
-            }
-            return false;
+            return GameSceneCatalog.IsBattleScene(sceneName);
         }
     }
 }

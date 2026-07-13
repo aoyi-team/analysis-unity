@@ -14,13 +14,13 @@ namespace Aoyi.Mirror
     {
         [Header("奥义项目配置")]
         [Tooltip("登录/注册场景名")]
-        public string loginScene = "LoadScene";
+        public string loginScene = GameSceneCatalog.Login;
 
         [Tooltip("大厅场景名")]
-        public string lobbyScene = "LobbyPanel";
+        public string lobbyScene = GameSceneCatalog.Lobby;
 
         [Tooltip("战斗场景名列表")]
-        public string[] battleScenes = new string[] { "dantiao_map", "paiwei_map" };
+        public string[] battleScenes = { GameSceneCatalog.DantiaoBattle, GameSceneCatalog.PaiweiBattle };
 
         [Header("调试")]
         [Tooltip("是否在启动时自动作为主机运行（仅编辑器调试用）")]

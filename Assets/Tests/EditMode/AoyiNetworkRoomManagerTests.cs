@@ -6,6 +6,31 @@ using UnityEngine;
 public class AoyiNetworkRoomManagerTests
 {
     [Test]
+    public void GameSceneCatalogMapsSoloRankToPaiweiMap()
+    {
+        System.Type catalogType = System.Type.GetType("GameSceneCatalog, Assembly-CSharp");
+        Assert.NotNull(catalogType);
+
+        System.Type gameModesType = System.Type.GetType("GameModes, Aoyi.Messages");
+        object soloRank = System.Enum.Parse(gameModesType, "paiwei_solo");
+        MethodInfo getBattleScene = catalogType.GetMethod("GetBattleScene", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.AreEqual("paiwei_map", getBattleScene.Invoke(null, new[] { soloRank }));
+    }
+
+    [Test]
+    public void GameSceneCatalogRecognizesOnlyEnabledBattleScenes()
+    {
+        System.Type catalogType = System.Type.GetType("GameSceneCatalog, Assembly-CSharp");
+        MethodInfo isBattleScene = catalogType.GetMethod("IsBattleScene", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.IsTrue((bool)isBattleScene.Invoke(null, new object[] { "dantiao_map" }));
+        Assert.IsTrue((bool)isBattleScene.Invoke(null, new object[] { "paiwei_map" }));
+        Assert.IsFalse((bool)isBattleScene.Invoke(null, new object[] { "paiwei_solo_map" }));
+        Assert.IsFalse((bool)isBattleScene.Invoke(null, new object[] { "LobbyPanel" }));
+    }
+
+    [Test]
     public void HasEnoughPlayersToStartRequiresFullConfiguredRoom()
     {
         MethodInfo method = GetHasEnoughPlayersMethod();
@@ -25,7 +50,7 @@ public class AoyiNetworkRoomManagerTests
     }
 
     [Test]
-    public void MirrorBattleServerBuildsFramePackFromPlayerOps()
+    public void MirrorBattleServerBuildsIncrementalFramePacksFromPlayerOps()
     {
         var bridgeType = System.Type.GetType("Aoyi.Mirror.MirrorNetBridge, Assembly-CSharp");
         Assert.NotNull(bridgeType, "MirrorNetBridge type should be available.");
@@ -45,7 +70,7 @@ public class AoyiNetworkRoomManagerTests
 
         resetMethod.Invoke(null, new object[] { "room-a" });
 
-        var opType = System.Type.GetType("MsgPlayerOp, Assembly-CSharp");
+        var opType = System.Type.GetType("MsgPlayerOp, Aoyi.Messages");
         Assert.NotNull(opType, "MsgPlayerOp type should be available.");
         object op = System.Activator.CreateInstance(opType);
         opType.GetField("roomId").SetValue(op, "room-a");
@@ -79,7 +104,8 @@ public class AoyiNetworkRoomManagerTests
         Assert.AreEqual(2, packType.GetField("frameId").GetValue(framePack2));
 
         var frames2 = (System.Collections.IList)packType.GetField("frames").GetValue(framePack2);
-        Assert.AreEqual(2, frames2.Count, "Frame pack should include recent frame history so late clients can catch up.");
+        Assert.AreEqual(1, frames2.Count, "Realtime frame packs must not resend the entire frame history.");
+        Assert.AreEqual(2, frameType.GetField("frameId").GetValue(frames2[0]));
     }
 
     [Test]
@@ -103,7 +129,7 @@ public class AoyiNetworkRoomManagerTests
 
         resetMethod.Invoke(null, new object[] { "room-ready", 2 });
 
-        var readyType = System.Type.GetType("MsgBattleReady, Assembly-CSharp");
+        var readyType = System.Type.GetType("MsgBattleReady, Aoyi.Messages");
         Assert.NotNull(readyType, "MsgBattleReady type should be available.");
 
         object ready1 = System.Activator.CreateInstance(readyType);
@@ -176,7 +202,7 @@ public class AoyiNetworkRoomManagerTests
             attacker,
             players,
             new Vector2(1, 0),
-            System.Activator.CreateInstance(fixed64Type, 150),
+            playerInfoType.GetProperty("CurrentHp").GetValue(enemyInRadius),
             System.Activator.CreateInstance(fixed64Type, 0.5f)
         });
 
@@ -226,14 +252,14 @@ public class AoyiNetworkRoomManagerTests
         MethodInfo method = controllerType.GetMethod("BuildLocalMatchRequest", BindingFlags.Public | BindingFlags.Static);
         Assert.NotNull(method, "HeroSelectionMatchController.BuildLocalMatchRequest should exist.");
 
-        System.Type gameModesType = System.Type.GetType("GameModes, Assembly-CSharp");
+        System.Type gameModesType = System.Type.GetType("GameModes, Aoyi.Messages");
         Assert.NotNull(gameModesType, "GameModes type should be available.");
         object dantiaoMode = System.Enum.Parse(gameModesType, "dantiao");
 
         object request = method.Invoke(null, new object[] { dantiaoMode, 101, "42" });
         Assert.NotNull(request);
 
-        System.Type requestType = System.Type.GetType("MsgMatchRequest, Assembly-CSharp");
+        System.Type requestType = System.Type.GetType("MsgMatchRequest, Aoyi.Messages");
         Assert.NotNull(requestType, "MsgMatchRequest type should be available.");
         Assert.AreEqual(requestType, request.GetType());
 
@@ -292,6 +318,27 @@ public class AoyiNetworkRoomManagerTests
 
         Assert.AreEqual(playerHostedRelay, defaultMode, "1v1 online play should default to Edgegap Relay instead of Dedicated Server.");
         Assert.IsFalse((bool)legacyDedicatedFlag, "The legacy dedicated flag should stay false when Relay is the primary path.");
+    }
+
+    [Test]
+    public void LobbyReturnEndsActiveOnlineMirrorSession()
+    {
+        var roomManagerType = System.Type.GetType("Aoyi.Mirror.AoyiNetworkRoomManager, Assembly-CSharp");
+        Assert.NotNull(roomManagerType, "AoyiNetworkRoomManager type should be available.");
+
+        MethodInfo method = roomManagerType.GetMethod(
+            "ShouldDisconnectOnlineSessionAfterLobbyReturn",
+            BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(method, "AoyiNetworkRoomManager.ShouldDisconnectOnlineSessionAfterLobbyReturn should exist.");
+
+        Assert.IsTrue((bool)method.Invoke(null, new object[] { "LobbyPanel", true, true, true }),
+            "An online host must close the completed match session after returning to the lobby.");
+        Assert.IsTrue((bool)method.Invoke(null, new object[] { "LobbyPanel", true, false, true }),
+            "An online guest must close the completed match session after returning to the lobby.");
+        Assert.IsFalse((bool)method.Invoke(null, new object[] { "dantiao_map", true, true, true }),
+            "Battle scenes must keep the active network session.");
+        Assert.IsFalse((bool)method.Invoke(null, new object[] { "LobbyPanel", false, false, false }),
+            "A local-only lobby must not attempt online session cleanup.");
     }
 
     private static object CreatePlayerInfo(System.Type playerInfoType, System.Type fixedVector2Type, string userId, int heroId, int teamId, int x, int y)

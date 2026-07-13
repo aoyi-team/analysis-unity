@@ -21,19 +21,13 @@ public class SceneMgr : MonoBehaviour
     // Unity的场景加载是异步的，不能直接调用SceneManager.LoadScene("sceneName")，会导致卡顿，所以需要使用协程来加载场景
     public AsyncOperation LoadSceneByName(GameModes mode)
     {
-        // paiwei_solo 复用 paiwei 的地图
-        GameModes mapped = mode == GameModes.paiwei_solo ? GameModes.paiwei : mode;
-        string modeName = mapped.ToString();
-        string mapName = modeName + "_map";
-        return SceneManager.LoadSceneAsync(mapName);
+        return SceneManager.LoadSceneAsync(GameSceneCatalog.GetBattleScene(mode));
     }
 
     #region 旧版加载
     public void LoadSceneBySceneIndex(GameModes mode)
     {
-        string front = mode.ToString();
-        string mapName = front + "_map";
-        StartCoroutine(LoadSceneAsync(mapName));
+        StartCoroutine(LoadSceneAsync(GameSceneCatalog.GetBattleScene(mode)));
     }
     IEnumerator LoadSceneAsync(string mapName)
     {
@@ -65,7 +59,7 @@ public class SceneMgr : MonoBehaviour
     /// <param name="mode"></param>
     private void OnSceneLoaded(Scene scene,LoadSceneMode mode)
     {
-        if(scene.name=="dantiao_map"|| scene.name == "paiwei_map")
+        if(GameSceneCatalog.IsBattleScene(scene.name))
         {
             LoadedFini?.Invoke();
         }

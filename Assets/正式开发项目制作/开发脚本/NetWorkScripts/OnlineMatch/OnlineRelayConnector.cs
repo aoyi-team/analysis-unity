@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Aoyi.Mirror;
 using Edgegap;
@@ -50,7 +51,7 @@ public static class OnlineConnectionLauncher
         }
 
         nm.maxRoomPlayers = MaxPlayers;
-        nm.pendingBattleScene = mode.ToString() + "_map";
+        nm.pendingBattleScene = GameSceneCatalog.GetBattleScene(mode);
         PlayerBasicInfoMgr.Instance.CurrentNetworkMode = NetworkMode.SupabaseOnline;
         PlayerBasicInfoMgr.Instance.SetCurrentGamemode(mode);
         PlayerBasicInfoMgr.Instance.UpdateHeroCache(heroId, skinId);
@@ -71,6 +72,19 @@ public static class OnlineConnectionLauncher
                 Debug.LogWarning($"[OnlineConnectionLauncher] 未支持的在线连接模式：{connectionMode}");
                 return false;
         }
+    }
+
+    public static async Task<bool> StartMatchedRoomAsync(
+        OnlineMatchResponse match,
+        GameModes mode,
+        int heroId,
+        int skinId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        bool started = await StartMatchedRoomAsync(match, mode, heroId, skinId);
+        cancellationToken.ThrowIfCancellationRequested();
+        return started;
     }
 
     private static bool StartDedicatedClient(AoyiNetworkRoomManager nm, string roomId, string role)
@@ -313,6 +327,39 @@ public static class OnlineConnectionLauncher
         else if (NetworkServer.active)
         {
             nm.StopServer();
+        }
+    }
+
+    public static void NotifyMatchedRoomEnded()
+    {
+        string roomId = PlayerBasicInfoMgr.Instance?.RoomId;
+        string accessToken = SupabaseBackendProvider.GetSavedAccessToken();
+        if (string.IsNullOrWhiteSpace(roomId) || string.IsNullOrWhiteSpace(accessToken))
+        {
+            Debug.LogWarning("[OnlineConnectionLauncher] 无法通知后端结束房间：roomId 或 accessToken 为空");
+            return;
+        }
+
+        _ = CloseMatchedRoomAsync(accessToken, roomId);
+    }
+
+    private static async Task CloseMatchedRoomAsync(string accessToken, string roomId)
+    {
+        try
+        {
+            OnlineMatchApiResult<OnlineMatchCloseResponse> result =
+                await OnlineMatchApiClient.CloseMatchAsync(accessToken, roomId);
+            if (result.Success && result.Data != null && result.Data.Closed)
+            {
+                Debug.Log($"[OnlineConnectionLauncher] 后端房间已关闭，roomId={roomId}");
+                return;
+            }
+
+            Debug.LogWarning($"[OnlineConnectionLauncher] 后端关闭房间失败，roomId={roomId}，error={result.ErrorMessage}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[OnlineConnectionLauncher] 后端关闭房间异常，roomId={roomId}，error={ex.Message}");
         }
     }
 
