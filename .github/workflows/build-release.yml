@@ -42,7 +42,7 @@ jobs:
         with:
           targetPlatform: ${{ matrix.targetPlatform }}
           buildName: ${{ github.event.repository.name }}-${{ matrix.targetPlatform }}
-          versioning: SemanticVersion
+          versioning: Tag
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
