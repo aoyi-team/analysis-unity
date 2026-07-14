@@ -32,6 +32,57 @@ jobs:
           restore-keys: |
             Library-${{ matrix.targetPlatform }}-
 
+      - name: Generate runtime Supabase config
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          ONLINE_MATCH_API_BASE_URL: ${{ secrets.ONLINE_MATCH_API_BASE_URL }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$ONLINE_MATCH_API_BASE_URL" ]; then
+            echo "Missing Supabase runtime configuration secrets." >&2
+            exit 1
+          fi
+          mkdir -p Assets/Resources
+          cat > Assets/Resources/SupabaseConfig.asset <<EOF
+          %YAML 1.1
+          %TAG !u! tag:unity3d.com,2011:
+          --- !u!114 &11400000
+          MonoBehaviour:
+            m_ObjectHideFlags: 0
+            m_CorrespondingSourceObject: {fileID: 0}
+            m_PrefabInstance: {fileID: 0}
+            m_PrefabAsset: {fileID: 0}
+            m_GameObject: {fileID: 0}
+            m_Enabled: 1
+            m_EditorHideFlags: 0
+            m_Script: {fileID: 11500000, guid: 16db0829b337478a919aca3bba2913af, type: 3}
+            m_Name: SupabaseConfig
+            m_EditorClassIdentifier: 
+            SupabaseUrl: ${SUPABASE_URL}
+            AnonKey: ${SUPABASE_ANON_KEY}
+            OnlineMatchApiBaseUrl: ${ONLINE_MATCH_API_BASE_URL}
+            EdgegapLobbyUrl: 
+            OnlineConnectionMode: 1
+            UseEdgegapDedicatedServer: 0
+            EdgegapDedicatedHost: bf5855a39bca.pr.edgegap.net
+            EdgegapDedicatedUdpPort: 30685
+            EdgegapDedicatedServerListenPort: 7777
+            ProfilesTable: profiles
+            RoomsTable: rooms
+            RequestTimeout: 10
+          EOF
+          cat > Assets/Resources/SupabaseConfig.asset.meta <<EOF
+          fileFormatVersion: 2
+          guid: 43fce686722444a3b17c0a1d9471bf0a
+          NativeFormatImporter:
+            externalObjects: {}
+            mainObjectFileID: 11400000
+            userData: 
+            assetBundleName: 
+            assetBundleVariant: 
+          EOF
+
       - name: Build Unity
         uses: game-ci/unity-builder@v4
         env:
