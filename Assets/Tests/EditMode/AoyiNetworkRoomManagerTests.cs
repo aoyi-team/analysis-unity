@@ -31,6 +31,47 @@ public class AoyiNetworkRoomManagerTests
     }
 
     [Test]
+    public void MatchSessionRejectsStaleMatchedResultAndEndsOnlyOnce()
+    {
+        System.Type contextType = System.Type.GetType("MatchSessionContext, Assembly-CSharp");
+        Assert.NotNull(contextType);
+        object context = System.Activator.CreateInstance(contextType);
+
+        System.Type networkModeType = System.Type.GetType("NetworkMode, Assembly-CSharp");
+        System.Type gameModesType = System.Type.GetType("GameModes, Aoyi.Messages");
+        object onlineMode = System.Enum.Parse(networkModeType, "SupabaseOnline");
+        object dantiao = System.Enum.Parse(gameModesType, "dantiao");
+
+        int generation = (int)contextType.GetMethod("BeginSearch").Invoke(context, new[] { onlineMode, dantiao });
+        Assert.IsFalse((bool)contextType.GetMethod("TryMarkMatched").Invoke(context, new object[] { generation - 1, "room-stale", "guest" }));
+        Assert.IsTrue((bool)contextType.GetMethod("TryMarkMatched").Invoke(context, new object[] { generation, "room-a", "host" }));
+        Assert.IsTrue((bool)contextType.GetMethod("TryBeginEnding").Invoke(context, null));
+        Assert.IsFalse((bool)contextType.GetMethod("TryBeginEnding").Invoke(context, null));
+    }
+
+    [Test]
+    public void MatchSessionResetClearsRoomAndInvalidatesGeneration()
+    {
+        System.Type contextType = System.Type.GetType("MatchSessionContext, Assembly-CSharp");
+        Assert.NotNull(contextType);
+        object context = System.Activator.CreateInstance(contextType);
+        System.Type networkModeType = System.Type.GetType("NetworkMode, Assembly-CSharp");
+        System.Type gameModesType = System.Type.GetType("GameModes, Aoyi.Messages");
+
+        int generation = (int)contextType.GetMethod("BeginSearch").Invoke(context, new[]
+        {
+            System.Enum.Parse(networkModeType, "SupabaseOnline"),
+            System.Enum.Parse(gameModesType, "dantiao")
+        });
+        contextType.GetMethod("TryMarkMatched").Invoke(context, new object[] { generation, "room-a", "host" });
+        contextType.GetMethod("Reset").Invoke(context, null);
+
+        Assert.IsNull(contextType.GetProperty("RoomId").GetValue(context));
+        Assert.Greater((int)contextType.GetProperty("Generation").GetValue(context), generation);
+        Assert.AreEqual("Idle", contextType.GetProperty("Phase").GetValue(context).ToString());
+    }
+
+    [Test]
     public void HasEnoughPlayersToStartRequiresFullConfiguredRoom()
     {
         MethodInfo method = GetHasEnoughPlayersMethod();

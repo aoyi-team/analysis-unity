@@ -429,7 +429,7 @@ namespace Aoyi.Mirror
                 {
                     roomId = ServerBattleRoomId,
                     frameId = ServerBattleFrameId,
-                    frames = new List<FrameData>(ServerFrameHistory)
+                    frames = new List<FrameData> { frameData }
                 };
             }
         }

@@ -20,6 +20,19 @@ public class OnlineMatchCancelRequest
 }
 
 [Serializable]
+public class OnlineMatchCloseRequest
+{
+    [JsonProperty("roomId")] public string RoomId;
+}
+
+[Serializable]
+public class OnlineMatchCloseResponse
+{
+    [JsonProperty("closed")] public bool Closed;
+    [JsonProperty("roomId")] public string RoomId;
+}
+
+[Serializable]
 public class OnlineMatchResponse
 {
     [JsonProperty("status")] public string Status;

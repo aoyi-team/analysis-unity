@@ -47,6 +47,7 @@ Desktop.ini
 
 # Unity local/export artifacts
 ExportedObj/
+/artifacts/
 *.apk
 *.aab
 *.unitypackage
@@ -67,6 +68,7 @@ sysinfo.txt
 /Assets/StreamingAssets/aa/
 
 # Local/private files
+.codex/
 debug.log
 *.env
 *.env.meta

@@ -39,6 +39,11 @@ public static class OnlineMatchApiClient
         return PostAsync<OnlineMatchCancelResponse>("/api/match/cancel", new OnlineMatchCancelRequest { TicketId = ticketId }, accessToken);
     }
 
+    public static Task<OnlineMatchApiResult<OnlineMatchCloseResponse>> CloseMatchAsync(string accessToken, string roomId)
+    {
+        return PostAsync<OnlineMatchCloseResponse>("/api/match/close", new OnlineMatchCloseRequest { RoomId = roomId }, accessToken);
+    }
+
     private static Task<OnlineMatchApiResult<T>> PostAsync<T>(string path, object body, string accessToken)
     {
         string json = JsonConvert.SerializeObject(body);

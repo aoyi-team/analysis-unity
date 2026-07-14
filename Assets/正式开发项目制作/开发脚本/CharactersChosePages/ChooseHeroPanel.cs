@@ -651,6 +651,9 @@ namespace Panels
         }
     }
 
+    // OnlineMatchManager moved to NetWorkScripts/OnlineMatch/OnlineMatchManager.cs.
+    // Keep the legacy implementation out of the build to avoid duplicate Panels types.
+#if false
     public interface IOnlineMatchConnector
     {
         bool IsMatching { get; }
@@ -871,4 +874,5 @@ namespace Panels
             }
         }
     }
+#endif
 }
