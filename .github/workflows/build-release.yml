@@ -16,7 +16,6 @@ jobs:
         targetPlatform:
           - StandaloneWindows64
           - StandaloneLinux64
-          - WebGL
 
     steps:
       - name: Checkout
@@ -69,11 +68,7 @@ jobs:
           mkdir -p release
           for dir in artifacts/Build-*/; do
             platform=$(basename "$dir" | sed 's/Build-//')
-            if [ "$platform" = "WebGL" ]; then
-              cp -r "$dir" "release/${platform}"
-            else
-              zip -r "release/${platform}.zip" "$dir"
-            fi
+            zip -r "release/${platform}.zip" "$dir"
           done
           ls -la release/
 
