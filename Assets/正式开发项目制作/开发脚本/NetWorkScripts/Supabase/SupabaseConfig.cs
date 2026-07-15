@@ -7,6 +7,7 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "SupabaseConfig", menuName = "Config/SupabaseConfig")]
 public class SupabaseConfig : ScriptableObject
 {
+    private static bool _loadAttempted;
     [Tooltip("Supabase 项目 URL，例如 https://your-project.supabase.co")]
     public string SupabaseUrl = ServerConfig.SupabaseUrl;
 
@@ -53,12 +54,22 @@ public class SupabaseConfig : ScriptableObject
     {
         get
         {
-            if (_instance == null)
+            if (_instance == null && !_loadAttempted)
             {
+                _loadAttempted = true;
                 _instance = Resources.Load<SupabaseConfig>("SupabaseConfig");
                 if (_instance == null)
                 {
+                    Debug.LogError("[SupabaseConfig] Resources/SupabaseConfig.asset not found! Falling back to placeholder defaults. Online features will NOT work. Ensure SupabaseConfig.asset exists in Assets/Resources/.");
                     _instance = CreateInstance<SupabaseConfig>();
+                }
+                else if (_instance.SupabaseUrl == ServerConfig.SupabaseUrl || string.IsNullOrWhiteSpace(_instance.SupabaseUrl))
+                {
+                    Debug.LogWarning($"[SupabaseConfig] Loaded config has placeholder SupabaseUrl: {_instance.SupabaseUrl}. Online features may not work correctly.");
+                }
+                else
+                {
+                    Debug.Log($"[SupabaseConfig] Config loaded successfully: SupabaseUrl={_instance.SupabaseUrl}, OnlineMatchApiBaseUrl={_instance.OnlineMatchApiBaseUrl}, ConnectionMode={_instance.OnlineConnectionMode}");
                 }
             }
             return _instance;
@@ -71,5 +82,6 @@ public class SupabaseConfig : ScriptableObject
     public static void ResetInstance()
     {
         _instance = null;
+        _loadAttempted = false;
     }
 }

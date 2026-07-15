@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using UnityEngine;
 using UnityEngine.Networking;
 
 /// <summary>
@@ -57,6 +58,7 @@ public static class SupabaseAuthClient
         request.downloadHandler = new DownloadHandlerBuffer();
         request.SetRequestHeader("apikey", SupabaseRestClient.AnonKey);
         request.SetRequestHeader("Content-Type", "application/json");
+        request.timeout = Mathf.RoundToInt(SupabaseRestClient.Timeout);
 
         try
         {

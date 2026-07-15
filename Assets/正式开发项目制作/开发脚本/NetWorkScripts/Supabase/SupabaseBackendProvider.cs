@@ -17,6 +17,8 @@ public class SupabaseBackendProvider : IBackendProvider
     private const string PREFS_USER_ID = "SupabaseUserId";
     private const string PREFS_USER_NAME = "SupabaseUserName";
 
+    private static string currentProcessAccessToken;
+
     private string _sessionUserName;
 
     public SupabaseBackendProvider()
@@ -26,6 +28,11 @@ public class SupabaseBackendProvider : IBackendProvider
 
     public static string GetSavedAccessToken()
     {
+        if (!string.IsNullOrWhiteSpace(currentProcessAccessToken))
+        {
+            return currentProcessAccessToken;
+        }
+
         return PlayerPrefs.GetString(PREFS_ACCESS_TOKEN, "");
     }
 
@@ -41,6 +48,7 @@ public class SupabaseBackendProvider : IBackendProvider
                 RefreshToken = PlayerPrefs.GetString(PREFS_REFRESH_TOKEN),
                 UserId = PlayerPrefs.GetString(PREFS_USER_ID)
             };
+            currentProcessAccessToken = _session.AccessToken;
             _sessionUserName = PlayerPrefs.GetString(PREFS_USER_NAME);
         }
     }
@@ -48,6 +56,7 @@ public class SupabaseBackendProvider : IBackendProvider
     private void SaveSession(AuthSession session, string userName = null)
     {
         _session = session;
+        currentProcessAccessToken = session.AccessToken;
         _sessionUserName = userName;
         PlayerPrefs.SetString(PREFS_ACCESS_TOKEN, session.AccessToken ?? "");
         PlayerPrefs.SetString(PREFS_REFRESH_TOKEN, session.RefreshToken ?? "");

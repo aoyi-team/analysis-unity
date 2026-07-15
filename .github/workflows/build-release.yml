@@ -83,6 +83,28 @@ jobs:
             assetBundleVariant: 
           EOF
 
+      - name: Verify Supabase config
+        shell: bash
+        run: |
+          if [ ! -f Assets/Resources/SupabaseConfig.asset ]; then
+            echo "ERROR: SupabaseConfig.asset was not generated." >&2
+            exit 1
+          fi
+          if ! grep -q "SupabaseUrl:" Assets/Resources/SupabaseConfig.asset; then
+            echo "ERROR: SupabaseConfig.asset is missing SupabaseUrl field." >&2
+            exit 1
+          fi
+          if ! grep -q "AnonKey:" Assets/Resources/SupabaseConfig.asset; then
+            echo "ERROR: SupabaseConfig.asset is missing AnonKey field." >&2
+            exit 1
+          fi
+          URL_VALUE=$(grep "SupabaseUrl:" Assets/Resources/SupabaseConfig.asset | sed 's/.*SupabaseUrl: //')
+          if [ -z "$URL_VALUE" ] || [ "$URL_VALUE" = "" ]; then
+            echo "ERROR: SupabaseUrl is empty in generated config." >&2
+            exit 1
+          fi
+          echo "SupabaseConfig.asset verified: URL prefix=${URL_VALUE:0:20}..., length=${#URL_VALUE}"
+
       - name: Build Unity
         uses: game-ci/unity-builder@v4
         env:

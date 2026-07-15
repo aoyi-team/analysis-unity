@@ -107,22 +107,27 @@ public sealed class LoginVideoPlayerBootstrap : MonoBehaviour
     {
         if (videoPlayer == null || !isActiveAndEnabled)
         {
+            Debug.LogWarning("[LoginVideoPlayerBootstrap] VideoPlayer missing or disabled.", this);
             return;
         }
 
         if (videoPlayer.clip == null && string.IsNullOrEmpty(videoPlayer.url))
         {
-            Debug.LogWarning("[LoginVideoPlayerBootstrap] No video clip or URL is assigned.", this);
+            Debug.LogError("[LoginVideoPlayerBootstrap] No video clip or URL assigned. The video asset may not be included in the build.", this);
             return;
         }
 
+        Debug.Log($"[LoginVideoPlayerBootstrap] Starting video: clip={(videoPlayer.clip != null ? videoPlayer.clip.name : "null")}, url={videoPlayer.url}, renderMode={videoPlayer.renderMode}, targetTexture={(videoPlayer.targetTexture != null ? videoPlayer.targetTexture.name : "null")}");
+
         if (videoPlayer.isPrepared)
         {
+            Debug.Log("[LoginVideoPlayerBootstrap] Video already prepared, playing directly.");
             videoPlayer.Play();
             return;
         }
 
         videoPlayer.Prepare();
+        Debug.Log("[LoginVideoPlayerBootstrap] Prepare() called, waiting for prepareCompleted callback.");
 
         if (retryCoroutine == null)
         {
@@ -151,6 +156,7 @@ public sealed class LoginVideoPlayerBootstrap : MonoBehaviour
 
     private void OnVideoPrepared(VideoPlayer source)
     {
+        Debug.Log("[LoginVideoPlayerBootstrap] Video prepared successfully, starting playback.");
         source.Play();
     }
 
